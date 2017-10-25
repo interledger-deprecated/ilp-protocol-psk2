@@ -5,12 +5,13 @@ const BigNumber = require('bignumber.js')
 const base64url = require('./base64url')
 
 class Plugin extends EventEmitter {
-  constructor ({ account, prefix }) {
+  constructor ({ account, prefix, balance }) {
     super()
     this.transfers = {}
     this.pairedPlugin = null
     this.account = account
     this.prefix = prefix
+    this.balance = new BigNumber(balance)
   }
 
   linkToOtherPlugin (otherPlugin) {
@@ -28,22 +29,31 @@ class Plugin extends EventEmitter {
     }
   }
 
+  getBalance () {
+    return Promise.resolve(this.balance.toString('10'))
+  }
+
   sendTransfer(transfer) {
+    this.transfers[transfer.id] = transfer
+    this.balance = this.balance.minus(transfer.amount)
     setImmediate(() => {
-      this.transfers[transfer.id] = transfer
       this.pairedPlugin.emit('incoming_prepare', transfer)
     })
   }
 
   fulfillCondition(transferId, fulfillment, ilp ) {
+    const transfer = this.pairedPlugin.transfers[transferId]
     setImmediate(() => {
-      this.pairedPlugin.emit('outgoing_fulfill', this.pairedPlugin.transfers[transferId], fulfillment, ilp)
+      this.balance = this.balance.plus(transfer.amount)
+      this.pairedPlugin.emit('outgoing_fulfill', transfer, fulfillment, ilp)
     })
   }
 
   rejectIncomingTransfer(transferId, rejectionReason) {
+    const transfer = this.pairedPlugin.transfers[transferId]
     setImmediate(() => {
-      this.pairedPlugin.emit('outgoing_reject', this.pairedPlugin.transfers[transferId], rejectionReason)
+      this.pairedPlugin.balance = this.pairedPlugin.balance.plus(transfer.amount)
+      this.pairedPlugin.emit('outgoing_reject', transfer, rejectionReason)
     })
   }
 }
@@ -74,10 +84,13 @@ class Connector {
     plugin2.on('outgoing_reject', (transfer, ilp) => plugin1.rejectIncomingTransfer(transfer.id, ilp))
   }
 
-  forwardPayment ({fromPlugin, toPlugin, transfer, rate, mps}) {
-    if (new BigNumber(transfer.amount).greaterThan(mps)) {
+  async forwardPayment ({fromPlugin, toPlugin, transfer, rate, mps}) {
+    const outgoingBalance = await toPlugin.getBalance()
+    const transferAmount = new BigNumber(transfer.amount)
+    const outgoingAmount = transferAmount.times(rate).truncated()
+    if (transferAmount.greaterThan(mps)) {
       const data = new oer.Writer()
-      data.writeUInt64(parseInt(transfer.amount))
+      data.writeUInt64(transferAmount.toNumber())
       data.writeUInt64(new BigNumber(mps).toNumber())
       fromPlugin.rejectIncomingTransfer(transfer.id, base64url(IlpPacket.serializeIlpError({
         code: 'F08',
@@ -87,21 +100,22 @@ class Connector {
         triggeredBy: '',
         forwardedBy: []
       })))
+    } else if (outgoingAmount.greaterThan(outgoingBalance)) {
+      fromPlugin.rejectIncomingTransfer(transfer.id, base64url(IlpPacket.serializeIlpError({
+        code: 'T04',
+        name: 'Insufficient Liquidity',
+        data: Buffer.alloc(0),
+        triggeredAt: new Date(),
+        triggeredBy: '',
+        forwardedBy: []
+      })))
     } else {
       toPlugin.sendTransfer(Object.assign({}, transfer, {
-        amount: rate.times(transfer.amount).truncated(),
+        amount: outgoingAmount.toString('10'),
         expiresAt: new Date(Date.parse(transfer.expiresAt) - 1000).toISOString()
       }))
     }
   }
-        //this.emit('outgoing_reject', transfer, base64url(IlpPacket.serializeIlpError({
-          //code: 'T04',
-          //name: 'Insufficient Liquidity',
-          //data: Buffer.alloc(0),
-          //triggeredAt: new Date(),
-          //triggeredBy: '',
-          //forwardedBy: []
-        //})))
 }
 
 exports.Plugin = Plugin

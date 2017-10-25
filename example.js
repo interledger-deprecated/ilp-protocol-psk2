@@ -5,37 +5,44 @@ const psk2 = require('.')
 
 const pluginA1 = new mocks.Plugin({
   account: 'test.a.sender',
-  prefix: 'test.a.'
+  prefix: 'test.a.',
+  balance: '10000'
 })
 const pluginA2 = new mocks.Plugin({
   account: 'test.a.connector',
-  prefix: 'test.a.'
+  prefix: 'test.a.',
+  balance: '10000'
 })
 pluginA1.linkToOtherPlugin(pluginA2)
 pluginA2.linkToOtherPlugin(pluginA1)
 
 const pluginB1 = new mocks.Plugin({
   account: 'test.b.receiver',
-  prefix: 'test.b.'
+  prefix: 'test.b.',
+  balance: '0'
 })
 const pluginB2 = new mocks.Plugin({
   account: 'test.b.connector',
-  prefix: 'test.b.'
+  prefix: 'test.b.',
+  balance: '100'
 })
 pluginB1.linkToOtherPlugin(pluginB2)
 pluginB2.linkToOtherPlugin(pluginB1)
 
+const mps1 = BigNumber.random().shift(3).truncated()
+const mps2 = BigNumber.random().shift(3).truncated()
+const rate = BigNumber.random().shift(1)
+console.log(`rate: ${rate.toString(10)}, mps1: ${mps1.toString(10)}, mps2: ${mps2.toString(10)}`)
 const connector = new mocks.Connector({
   plugin1: pluginA2,
   plugin2: pluginB2,
-  mps1: BigNumber.random().shift(3).truncated(),
-  mps2: BigNumber.random().shift(3).truncated(),
-  rate: BigNumber.random().shift(1),
+  mps1,
+  mps2,
+  rate,
   spread: 0.01
 })
 
 async function main () {
-  console.log('psk2', psk2)
   const receiverSecret = crypto.randomBytes(32)
   psk2.listen(pluginB1, { receiverSecret }, async ({ id, amount, accept, reject }) => {
     const amountReceived = await accept()

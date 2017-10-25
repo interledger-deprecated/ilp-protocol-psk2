@@ -18,11 +18,11 @@ class Plugin extends EventEmitter {
     this.pairedPlugin = otherPlugin
   }
 
-  getAccount() {
+  getAccount () {
     return this.account
   }
 
-  getInfo() {
+  getInfo () {
     return {
       prefix: this.prefix,
       connectors: [ this.pairedPlugin.account ]
@@ -33,7 +33,7 @@ class Plugin extends EventEmitter {
     return Promise.resolve(this.balance.toString('10'))
   }
 
-  sendTransfer(transfer) {
+  sendTransfer (transfer) {
     this.transfers[transfer.id] = transfer
     this.balance = this.balance.minus(transfer.amount)
     setImmediate(() => {
@@ -41,7 +41,7 @@ class Plugin extends EventEmitter {
     })
   }
 
-  fulfillCondition(transferId, fulfillment, ilp ) {
+  fulfillCondition (transferId, fulfillment, ilp) {
     const transfer = this.pairedPlugin.transfers[transferId]
     setImmediate(() => {
       this.balance = this.balance.plus(transfer.amount)
@@ -49,7 +49,7 @@ class Plugin extends EventEmitter {
     })
   }
 
-  rejectIncomingTransfer(transferId, rejectionReason) {
+  rejectIncomingTransfer (transferId, rejectionReason) {
     const transfer = this.pairedPlugin.transfers[transferId]
     setImmediate(() => {
       this.pairedPlugin.balance = this.pairedPlugin.balance.plus(transfer.amount)

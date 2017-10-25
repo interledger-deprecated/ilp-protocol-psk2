@@ -41,6 +41,7 @@ const connector = new mocks.Connector({
   rate,
   spread: 0.01
 })
+console.log(connector)
 
 async function main () {
   const receiverSecret = crypto.randomBytes(32)
@@ -76,5 +77,3 @@ async function main () {
   process.exit(0)
 }
 main().catch(err => console.log(err.stack))
-
-

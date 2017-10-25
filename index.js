@@ -1,4 +1,3 @@
-const assert = require('assert')
 const crypto = require('crypto')
 const IlpPacket = require('ilp-packet')
 const oer = require('oer-utils')
@@ -16,7 +15,7 @@ const DEFAULT_PAYMENT_TIMEOUT = 120
 // TODO what is a reasonable transfer amount to start?
 const DEFAULT_TRANSFER_START_AMOUNT = 1000
 const PAYMENT_SIZE_INCREASE_FACTOR = 1.1
-const PAYMENT_SIZE_DECREASE_FACTOR = .5
+const PAYMENT_SIZE_DECREASE_FACTOR = 0.5
 const MS_TO_WAIT_AFTER_EXPIRY_BEFORE_REFUND = 30000
 const MINIMUM_AMOUNT_FOR_REFUND = 100
 
@@ -29,7 +28,7 @@ async function quoteBySourceAmount (plugin, {
   sourceAmount,
   sharedSecret
 }) {
-  const firstConnector = connector || plugin.getInfo().connectors && plugin.getInfo().connectors[0]
+  const firstConnector = connector || (plugin.getInfo().connectors && plugin.getInfo().connectors[0])
   const timeoutMilliseconds = (timeout || DEFAULT_TRANSFER_TIMEOUT) * 1000
   const packetData = Buffer.from(JSON.stringify({method: 'quote'}), 'utf8')
   const quoteTransfer = {
@@ -133,7 +132,7 @@ async function _sendPayment (plugin, {
   debug(`sending new payment ${paymentId} to ${destinationAccount}. destinationAmount: ${destinationAmount}, sourceAmount: ${sourceAmount}`)
 
   // TODO (more complicated) send through multiple connectors if there are multiple
-  const firstConnector = connector || plugin.getInfo().connectors && plugin.getInfo().connectors[0]
+  const firstConnector = connector || (plugin.getInfo().connectors && plugin.getInfo().connectors[0])
 
   // TODO warn user or give error if the payment timeout looks like it'll be insufficient
   const paymentTimeout = (timeout || DEFAULT_PAYMENT_TIMEOUT) * 1000
@@ -250,7 +249,7 @@ async function _sendPayment (plugin, {
             const dataReader = oer.Reader.from(Buffer.from(ilpError.data, 'ascii'))
             const amountArrived = Long.fromBits.apply(null, dataReader.readUInt64().concat([true])).toString()
             const amountLimit = Long.fromBits.apply(null, dataReader.readUInt64().concat([true])).toString()
-            const decreaseFactor = new BigNumber(amountLimit).dividedBy(amountArrived)
+            let decreaseFactor = new BigNumber(amountLimit).dividedBy(amountArrived)
             if (decreaseFactor.greaterThanOrEqualTo(1)) {
               // something is wrong with the error values we got, use the default
               decreaseFactor = PAYMENT_SIZE_DECREASE_FACTOR
@@ -261,6 +260,14 @@ async function _sendPayment (plugin, {
             // so this might get adjusted down more if we get more payment errors
             maximumTransferAmount = BigNumber.max(transferAmount.times(decreaseFactor).truncated(), 1)
             transferAmount = maximumTransferAmount
+            break
+          case 'T04': // Insufficient Liquidity
+            // TODO switch to a different path if we can
+            debug('path has insufficient liquidity, now we need to wait and hope we get our money back...')
+            await new Promise((resolve, reject) => {
+              setTimeout(resolve(), 2000)
+            })
+
             break
           default:
             // TODO is this the right default behavior? should we keep trying?
@@ -357,13 +364,13 @@ function generateParams ({
 }
 
 async function listenForPayment (plugin, { sharedSecret, paymentId, timeout }) {
+  debug(`listening for payment ${paymentId}`)
   const paymentPromise = new Promise((resolve, reject) => {
     const stopListening = listen(plugin, { sharedSecret }, async (payment) => {
       if (payment.id === paymentId) {
         const amountReceived = await payment.accept()
         resolve(amountReceived)
         stopListening()
-        return
       }
     })
   })
@@ -382,15 +389,15 @@ async function listenForPayment (plugin, { sharedSecret, paymentId, timeout }) {
   return result
 }
 
-function listen (plugin, { receiverSecret, sharedSecret }, callback) {
+function listen (plugin, { receiverSecret, sharedSecret }, handler) {
   const payments = {}
 
   async function listener (transfer) {
     debug('got incoming transfer', transfer)
     const packet = IlpPacket.deserializeIlpPayment(Buffer.from(transfer.ilp, 'base64'))
     const data = JSON.parse(Buffer.from(packet.data, 'base64').toString('utf8'))
-    sharedSecret = (sharedSecret && Buffer.from(sharedSecret, 'base64'))
-      || _accountToSharedSecret({
+    sharedSecret = (sharedSecret && Buffer.from(sharedSecret, 'base64')) ||
+      _accountToSharedSecret({
         account: packet.account,
         pluginAccount: plugin.getAccount(),
         receiverSecret
@@ -406,7 +413,6 @@ function listen (plugin, { receiverSecret, sharedSecret }, callback) {
         message: transfer.amount
       })
       // TODO handle error rejecting transfer
-      return
     } else if (data.method === 'pay') {
       const paymentId = data.paymentId
       if (!payments[paymentId]) {
@@ -431,7 +437,7 @@ function listen (plugin, { receiverSecret, sharedSecret }, callback) {
         }
 
         // TODO include data in callback
-        callback({
+        handler({
           id: paymentId,
           amount: data.destinationAmount,
           // Receiver calls accept to start accepting chunks. It returns a promise that resolves
@@ -465,7 +471,7 @@ function listen (plugin, { receiverSecret, sharedSecret }, callback) {
       await plugin.rejectIncomingTransfer(transfer.id, {
         code: 'F99',
         name: 'Application Error',
-        message: rejectionReason
+        message: paymentRecord.rejectionReason
       })
       // TODO handle error
       return
@@ -519,7 +525,7 @@ function listen (plugin, { receiverSecret, sharedSecret }, callback) {
 
     debug(`sending refund for payment ${paymentId}. source amount: ${paymentRecord.received.toString(10)})`)
     await sendBySourceAmount(plugin, {
-      timeout: DEFAULT_PAYMENT_TIMEOUT * 1000 * 10, // we don't care how long it takes
+      timeout: DEFAULT_PAYMENT_TIMEOUT * 1000 * 10 // we don't care how long it takes
       // TODO should we start with the same chunk size as the incoming payment last had?
     }, {
       destinationAccount: paymentRecord.sourceAccount,

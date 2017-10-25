@@ -1,70 +1,7 @@
-const EventEmitter = require('eventemitter2')
+const assert = require('assert')
+const crypto = require('crypto')
 const IlpPacket = require('ilp-packet')
 const oer = require('oer-utils')
-
-class MockPlugin extends EventEmitter {
-  constructor () {
-    super()
-    this.transfers = {}
-    this.maximumPaymentSize = BigNumber.random().shift(3).truncated()
-    this.rate = BigNumber.random().shift(1)
-    this.amountLeft = BigNumber.random().shift(4).truncated()
-    console.log(`mock plugin MPS: ${this.maximumPaymentSize.toString(10)}, rate: ${this.rate.toString(10)}, total liquidity: ${this.amountLeft.toString(10)}`)
-  }
-
-  getAccount() {
-    return 'test.ledger.a'
-  }
-
-  getInfo() {
-    return {
-      prefix: 'test.ledger.',
-      connectors: ['test.ledger.b']
-    }
-  }
-
-  sendTransfer(transfer) {
-    this.transfers[transfer.id] = transfer
-    setImmediate(() => {
-      const destinationAmount = this.rate.times(transfer.amount).truncated()
-      if (this.amountLeft.lessThan(transfer.amount)) {
-        this.emit('outgoing_reject', transfer, base64url(IlpPacket.serializeIlpError({
-          code: 'T04',
-          name: 'Insufficient Liquidity',
-          data: Buffer.alloc(0),
-          triggeredAt: new Date(),
-          triggeredBy: '',
-          forwardedBy: []
-        })))
-      } else if (this.maximumPaymentSize.lessThan(destinationAmount)) {
-        const data = new oer.Writer()
-        data.writeUInt64(destinationAmount.toNumber())
-        data.writeUInt64(this.maximumPaymentSize.toNumber())
-        this.emit('outgoing_reject', transfer, base64url(IlpPacket.serializeIlpError({
-          code: 'F08',
-          name: 'Payment Too Large',
-          data: data.getBuffer(),
-          triggeredAt: new Date(),
-          triggeredBy: '',
-          forwardedBy: []
-        })))
-      } else {
-        this.amountLeft = this.amountLeft.minus(transfer.amount)
-        this.emit('incoming_prepare', Object.assign({}, transfer, {amount: destinationAmount.toString(10)}))
-      }
-    })
-  }
-
-  fulfillCondition(transferId, fulfillment, ilp ) {
-    setImmediate(() => this.emit('outgoing_fulfill', this.transfers[transferId], fulfillment, ilp))
-  }
-
-  rejectIncomingTransfer(transferId, rejectionReason) {
-    setImmediate(() => this.emit('outgoing_reject', this.transfers[transferId], rejectionReason))
-  }
-}
-
-const assert = require('assert')
 const uuid = require('uuid')
 const cryptoHelper = require('./crypto')
 const base64url = require('./base64url')
@@ -606,41 +543,8 @@ function _accountToSharedSecret ({ account, pluginAccount, receiverSecret }) {
   return cryptoHelper.getPskSharedSecret(receiverSecret, token)
 }
 
-const crypto = require('crypto')
-async function main () {
-  const plugin = new MockPlugin()
-  const receiverSecret = crypto.randomBytes(32)
-  listen(plugin, { receiverSecret }, async ({ id, amount, accept, reject }) => {
-    const amountReceived = await accept()
-    console.log('receiver got:', amountReceived)
-  })
-  const { destinationAccount, sharedSecret } = generateParams({
-    destinationAccount: 'test.ledger.b',
-    receiverSecret
-  })
-  console.log(`generated PSK params: destinationAccount ${destinationAccount}, sharedSecret ${base64url(sharedSecret)}`)
-  const destinationAmount = await quoteBySourceAmount(plugin, {}, {
-    destinationAccount,
-    sourceAmount: '10',
-    sharedSecret
-  })
-  console.log('got quote:', destinationAmount)
-
-  const destinationResult = await sendByDestinationAmount(plugin, {}, {
-    destinationAccount,
-    destinationAmount: '10000',
-    sharedSecret
-  })
-  console.log('sent payment with fixed destination amount:', destinationResult)
-
-  const sourceResult = await sendBySourceAmount(plugin, {}, {
-    destinationAccount,
-    sourceAmount: '10000',
-    sharedSecret
-  })
-  console.log('sent payment with fixed source amount:', sourceResult)
-  process.exit(0)
-}
-main().catch(err => console.log(err.stack))
-
-
+exports.generateParams = generateParams
+exports.listen = listen
+exports.quoteBySourceAmount = quoteBySourceAmount
+exports.sendByDestinationAmount = sendByDestinationAmount
+exports.sendBySourceAmount = sendBySourceAmount

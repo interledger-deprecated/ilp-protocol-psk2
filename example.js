@@ -11,7 +11,7 @@ const pluginA1 = new mocks.Plugin({
 const pluginA2 = new mocks.Plugin({
   account: 'test.a.connector',
   prefix: 'test.a.',
-  balance: '10000'
+  balance: '100000000'
 })
 pluginA1.linkToOtherPlugin(pluginA2)
 pluginA2.linkToOtherPlugin(pluginA1)
@@ -24,7 +24,7 @@ const pluginB1 = new mocks.Plugin({
 const pluginB2 = new mocks.Plugin({
   account: 'test.b.connector',
   prefix: 'test.b.',
-  balance: '100'
+  balance: '10000'
 })
 pluginB1.linkToOtherPlugin(pluginB2)
 pluginB2.linkToOtherPlugin(pluginB1)
@@ -54,12 +54,12 @@ async function main () {
     receiverSecret
   })
   console.log(`generated PSK params: destinationAccount ${destinationAccount}, sharedSecret ${sharedSecret.toString('base64')}`)
-  const destinationAmount = await psk2.quoteBySourceAmount(pluginA1, {}, {
-    destinationAccount,
-    sourceAmount: '10',
-    sharedSecret
-  })
-  console.log('got quote:', destinationAmount)
+  //const destinationAmount = await psk2.quoteBySourceAmount(pluginA1, {}, {
+    //destinationAccount,
+    //sourceAmount: '10',
+    //sharedSecret
+  //})
+  //console.log('got quote:', destinationAmount)
 
   const destinationResult = await psk2.sendByDestinationAmount(pluginA1, {}, {
     destinationAccount,
@@ -68,12 +68,12 @@ async function main () {
   })
   console.log('sent payment with fixed destination amount:', destinationResult)
 
-  const sourceResult = await psk2.sendBySourceAmount(pluginA1, {}, {
-    destinationAccount,
-    sourceAmount: '10000',
-    sharedSecret
-  })
-  console.log('sent payment with fixed source amount:', sourceResult)
+  //const sourceResult = await psk2.sendBySourceAmount(pluginA1, {}, {
+    //destinationAccount,
+    //sourceAmount: '10000',
+    //sharedSecret
+  //})
+  //console.log('sent payment with fixed source amount:', sourceResult)
   process.exit(0)
 }
 main().catch(err => console.log(err.stack))

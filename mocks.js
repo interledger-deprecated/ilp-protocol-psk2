@@ -110,7 +110,10 @@ class Connector {
         forwardedBy: []
       })))
     } else {
+      const packet = IlpPacket.deserializeIlpPayment(Buffer.from(transfer.ilp, 'base64'))
       toPlugin.sendTransfer(Object.assign({}, transfer, {
+        from: toPlugin.getAccount(),
+        to: packet.account,
         amount: outgoingAmount.toString('10'),
         expiresAt: new Date(Date.parse(transfer.expiresAt) - 1000).toISOString()
       }))

@@ -78,7 +78,8 @@ async function sendByDestinationAmount (plugin, {
   destinationAccount,
   destinationAmount,
   maxSourceAmount,
-  sharedSecret
+  sharedSecret,
+  paymentId
 }) {
   const result = await _sendPayment(plugin, {
     timeout,
@@ -87,7 +88,8 @@ async function sendByDestinationAmount (plugin, {
     destinationAccount,
     destinationAmount,
     sourceAmount: maxSourceAmount,
-    sharedSecret
+    sharedSecret,
+    id: paymentId
   })
   return result
 }
@@ -98,7 +100,8 @@ async function sendBySourceAmount (plugin, {
 }, {
   destinationAccount,
   sourceAmount,
-  sharedSecret
+  sharedSecret,
+  paymentId
 }) {
   const result = await _sendPayment(plugin, {
     timeout,
@@ -106,7 +109,8 @@ async function sendBySourceAmount (plugin, {
   }, {
     destinationAccount,
     sourceAmount,
-    sharedSecret
+    sharedSecret,
+    id: paymentId
   })
   return result
 }
@@ -115,7 +119,6 @@ async function sendBySourceAmount (plugin, {
 // If both sourceAmount and destinationAmount are specified, it
 // will try to deliver the destinationAmount without going over the sourceAmount
 async function _sendPayment (plugin, {
-  timeout,
   connector
 }, {
   destinationAccount,
@@ -131,11 +134,12 @@ async function _sendPayment (plugin, {
   const paymentId = id || uuid()
   debug(`sending new payment ${paymentId} to ${destinationAccount}. destinationAmount: ${destinationAmount}, sourceAmount: ${sourceAmount}`)
 
+  // TODO make refund account suffix indistinguishable from receiver address
+  const refundAccount = plugin.getAccount() + '.' + crypto.randomBytes(24).toString('base64')
+  debug(`generated refund account: ${refundAccount}`)
+
   // TODO (more complicated) send through multiple connectors if there are multiple
   const firstConnector = connector || (plugin.getInfo().connectors && plugin.getInfo().connectors[0])
-
-  // TODO warn user or give error if the payment timeout looks like it'll be insufficient
-  const paymentTimeout = (timeout || DEFAULT_PAYMENT_TIMEOUT) * 1000
 
   // TODO should the per-transfer timeout be configurable?
   const transferTimeout = DEFAULT_TRANSFER_TIMEOUT * 1000
@@ -148,7 +152,7 @@ async function _sendPayment (plugin, {
   let numChunks = 0
   const startTime = Date.now()
 
-  const sendingPromise = new Promise(async function (resolve, reject) {
+  async function sendChunksAdjustingAmount () {
     // Start sending chunks using a default amount, then adjust it upwards or downwards
     let transferAmount = new BigNumber(DEFAULT_TRANSFER_START_AMOUNT)
     let maximumTransferAmount
@@ -161,14 +165,14 @@ async function _sendPayment (plugin, {
         paymentId,
         destinationAmount,
         lastPayment: false,
-        sourceAccount: plugin.getAccount(),
-        expiresAt: new Date(Date.now() + paymentTimeout).toISOString(), // tell the other side when we'll stop sending (and they should send the money back)
+        sourceAccount: refundAccount,
         nonce: base64url(crypto.randomBytes(16))
       }
 
+      // Figure out if we've already sent enough or if we're close to the end
       if (destinationAmount) {
         if (amountDelivered.greaterThanOrEqualTo(destinationAmount)) {
-          return resolve()
+          return
         }
         // TODO should we use the overall rate or the last chunk's rate?
         const rate = amountDelivered.dividedBy(amountSent)
@@ -179,13 +183,12 @@ async function _sendPayment (plugin, {
         }
 
         if (sourceAmount && amountSent.plus(transferAmount).greaterThan(sourceAmount)) {
-          // TODO make sure we get our money back and then return an error
           debug(`sending another chunk for payment ${paymentId} would exceed source amount limit`)
-          break
+          return listenForRefund()
         }
       } else {
         if (amountSent.greaterThanOrEqualTo(sourceAmount)) {
-          return resolve()
+          return
         }
         const sourceAmountRemaining = new BigNumber(sourceAmount).minus(amountSent)
         if (sourceAmountRemaining.lessThanOrEqualTo(transferAmount)) {
@@ -227,7 +230,7 @@ async function _sendPayment (plugin, {
         amountSent = amountSent.plus(transfer.amount)
         numChunks++
 
-        debug(`amount delivered so far for payment ${paymentId}: ${amountDelivered.toString(10)} (rate: ${amountDelivered.dividedBy(amountSent).toString(10)})`)
+        debug(`sent chunk for payment ${paymentId}. amount sent: ${amountSent.toString(10) + (sourceAmount ? ' (of ' + sourceAmount + ')' : '')}, amount delivered: ${amountDelivered.toString(10) + (destinationAmount ? ' (of ' + destinationAmount + ')' : '')} (rate: ${amountDelivered.dividedBy(amountSent).toString(10)})`)
 
         // Increase the transfer amount as long as it doesn't go over the path's Maximum Payment Size
         const potentialTransferAmount = transferAmount.times(PAYMENT_SIZE_INCREASE_FACTOR).truncated()
@@ -263,10 +266,9 @@ async function _sendPayment (plugin, {
             break
           case 'T04': // Insufficient Liquidity
             // TODO switch to a different path if we can
-            debug('path has insufficient liquidity, now we need to wait and hope we get our money back...')
-            await new Promise((resolve, reject) => {
-              setTimeout(resolve(), 2000)
-            })
+            // TODO should we wait a bit and try again or fail immediately?
+            debug('path has insufficient liquidity')
+            return listenForRefund()
 
             break
           default:
@@ -277,28 +279,30 @@ async function _sendPayment (plugin, {
         }
       }
     }
-  })
+  }
 
-  let timer
-  const timeoutPromise = new Promise((resolve, reject) => {
-    timer = setTimeout(async () => {
-      debug(`payment ${paymentId} expired before it was finished. sent: ${amountSent.toString(10)}, delivered: ${amountDelivered.toString(10)}`)
-      let amountReturned
-      try {
-        // TODO is it okay that this has a longer timeout? we want our money back but the promise could also hang for a while
-        amountReturned = await listenForPayment(plugin, { sharedSecret, paymentId })
-        debug(`got refund for payment ${paymentId} of ${amountReturned} (lost: ${amountSent.minus(amountReturned || 0).toString(10)})`)
-      } catch (err) {
-        // TODO figure out how much we've gotten back, even if it's not everything
-        debug(`error waiting for refund for payment ${paymentId}`, err)
-      }
+  async function listenForRefund () {
+    debug(`waiting for refund for payment ${paymentId}`)
 
-      reject(new Error(`Payment timed out. Amount lost: ${amountSent.minus(amountReturned || 0)}`))
-    }, paymentTimeout)
-  })
+    let amountReturned = 0
+    try {
+      // TODO accept partial refund
+      amountReturned = await listenForPayment(plugin, {
+        sharedSecret,
+        paymentId,
+        // TODO how long should we wait for the refund?
+        timeout: 10,
+        destinationAccount: refundAccount,
+        disableRefund: true
+      })
+      debug(`got refund for payment ${paymentId} of ${amountReturned}`)
+    } catch (err) {
+      debug(`error waiting for refund for payment ${paymentId}:`, err)
+    }
+    throw new Error(`Sending payment ${paymentId} failed. Amount not returned: ${amountSent.minus(amountReturned).toString(10)}`)
+  }
 
-  await Promise.race([sendingPromise, timeoutPromise])
-  clearTimeout(timer)
+  await sendChunksAdjustingAmount()
 
   debug(`sent payment ${paymentId}. delivered ${amountDelivered.toString(10)} to ${destinationAccount} with ${numChunks} chunks in ${Date.now() - startTime}ms`)
   return {
@@ -363,10 +367,14 @@ function generateParams ({
   }
 }
 
-async function listenForPayment (plugin, { sharedSecret, paymentId, timeout }) {
+async function listenForPayment (plugin, { sharedSecret, paymentId, timeout, destinationAccount, disableRefund }) {
   debug(`listening for payment ${paymentId}`)
   const paymentPromise = new Promise((resolve, reject) => {
-    const stopListening = listen(plugin, { sharedSecret }, async (payment) => {
+    const stopListening = listen(plugin, {
+      sharedSecret,
+      destinationAccount,
+      disableRefund
+    }, async (payment) => {
       if (payment.id === paymentId) {
         const amountReceived = await payment.accept()
         resolve(amountReceived)
@@ -389,13 +397,23 @@ async function listenForPayment (plugin, { sharedSecret, paymentId, timeout }) {
   return result
 }
 
-function listen (plugin, { receiverSecret, sharedSecret }, handler) {
+// TODO add option to allow partial payments
+function listen (plugin, { receiverSecret, sharedSecret, destinationAccount, disableRefund }, handler) {
   const payments = {}
 
   async function listener (transfer) {
     debug('got incoming transfer', transfer)
     const packet = IlpPacket.deserializeIlpPayment(Buffer.from(transfer.ilp, 'base64'))
+
+    if (destinationAccount && packet.account !== destinationAccount) {
+      debug(`transfer does not concern us. destination account: ${packet.account}, our account: ${destinationAccount}`)
+      return
+    }
+
     const data = JSON.parse(Buffer.from(packet.data, 'base64').toString('utf8'))
+    debug('parsed data', data)
+
+    // TODO handle if we can't regenerate the shared secret (means the payment isn't for us)
     sharedSecret = (sharedSecret && Buffer.from(sharedSecret, 'base64')) ||
       _accountToSharedSecret({
         account: packet.account,
@@ -414,6 +432,7 @@ function listen (plugin, { receiverSecret, sharedSecret }, handler) {
       })
       // TODO handle error rejecting transfer
     } else if (data.method === 'pay') {
+      debug('got incoming payment chunk')
       const paymentId = data.paymentId
       if (!payments[paymentId]) {
         payments[paymentId] = {
@@ -425,15 +444,10 @@ function listen (plugin, { receiverSecret, sharedSecret }, handler) {
           accepted: null,
           rejectionReason: null,
           resolve: null,
-          reject: null
-        }
-
-        if (data.expiresAt) {
-          const timeRemaining = Date.parse(data.expiresAt) - Date.now()
-          // TODO maybe keep state so we do this even if process crashes
-          payments[paymentId].refundTimeout = setTimeout(() => {
-            refundPayment(paymentId)
-          }, timeRemaining + MS_TO_WAIT_AFTER_EXPIRY_BEFORE_REFUND)
+          reject: null,
+          refundTimout: null,
+          longestDelayBetweenChunks: 1000, // wait at least 1 second
+          lastChunkTimestamp: Date.now()
         }
 
         // TODO include data in callback
@@ -443,6 +457,7 @@ function listen (plugin, { receiverSecret, sharedSecret }, handler) {
           // Receiver calls accept to start accepting chunks. It returns a promise that resolves
           // when the payment has been fully received or rejects if there is an error
           accept: () => {
+            debug(`receiver accepted payment ${paymentId}`)
             payments[paymentId].accepted = true
             return new Promise((resolve, reject) => {
               payments[paymentId].resolve = resolve
@@ -451,6 +466,7 @@ function listen (plugin, { receiverSecret, sharedSecret }, handler) {
             })
           },
           reject: (reason) => {
+            debug(`receiver rejected payment ${paymentId} with reason: ${reason}`)
             payments[paymentId].accepted = false
             payments[paymentId].rejectionReason = reason
             return finalizeTransfer(paymentId, transfer, data)
@@ -495,6 +511,7 @@ function listen (plugin, { receiverSecret, sharedSecret }, handler) {
     // TODO catch error
     payments[paymentId].received = newPaymentAmount
     if (paymentData.lastPayment === true) {
+      debug(`received last chunk for payment ${paymentId}`)
       paymentRecord.receivedLastChunk = true
     }
     debug(`received chunk for payment ${paymentId}; total received: ${newPaymentAmount.toString(10)}`)
@@ -504,11 +521,33 @@ function listen (plugin, { receiverSecret, sharedSecret }, handler) {
       paymentRecord.resolve(newPaymentAmount.toString(10))
       clearTimeout(paymentRecord.refundTimeout)
     }
+
+    if (!disableRefund) {
+      // Update the refund timeout
+      // Set it to 2x the default transfer timeout if this is the first chunk
+      // or 2x the longest delay between chunks we've seen if not
+      // TODO should we use a moving average to determine the max time we should wait for the next chunk?
+      const delaySinceLastChunk = Date.now() - paymentRecord.lastChunkTimestamp
+      paymentRecord.lastChunkTimestamp = Date.now()
+      if (paymentRecord.refundTimeout === null) {
+        paymentRecord.longestDelayBetweenChunks = delaySinceLastChunk
+        paymentRecord.refundTimeout = setTimeout(() => {
+          refundPayment(paymentId)
+        }, DEFAULT_TRANSFER_TIMEOUT * 1000 * 2)
+      } else {
+        if (delaySinceLastChunk > paymentRecord.longestDelayBetweenChunks) {
+          paymentRecord.longestDelayBetweenChunks = delaySinceLastChunk
+        }
+        clearTimeout(paymentRecord.refundTimeout)
+        paymentRecord.refundTimeout = setTimeout(() => {
+          refundPayment(paymentId)
+        }, paymentRecord.longestDelayBetweenChunks * 2)
+      }
+    }
   }
 
   // TODO should there be an option to not issue refunds?
   async function refundPayment (paymentId) {
-    debug(`initiating refund for payment ${paymentId}`)
     const paymentRecord = payments[paymentId]
     paymentRecord.accepted = false
     paymentRecord.rejectionReason = 'Refunding payment'
@@ -525,12 +564,11 @@ function listen (plugin, { receiverSecret, sharedSecret }, handler) {
 
     debug(`sending refund for payment ${paymentId}. source amount: ${paymentRecord.received.toString(10)})`)
     await sendBySourceAmount(plugin, {
-      timeout: DEFAULT_PAYMENT_TIMEOUT * 1000 * 10 // we don't care how long it takes
-      // TODO should we start with the same chunk size as the incoming payment last had?
     }, {
       destinationAccount: paymentRecord.sourceAccount,
       sourceAmount: paymentRecord.received,
-      sharedSecret: paymentRecord.sharedSecret
+      sharedSecret: paymentRecord.sharedSecret,
+      paymentId
     })
   }
 

@@ -7,6 +7,7 @@ const base64url = require('./base64url')
 const BigNumber = require('bignumber.js')
 const Long = require('long')
 const debug = require('debug')('ilp:psk2')
+const EventEmitter = require('eventemitter2')
 
 const NULL_CONDITION = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 const DEFAULT_TRANSFER_TIMEOUT = 30
@@ -367,6 +368,138 @@ function generateParams ({
   }
 }
 
+class IncomingPayment extends EventEmitter {
+  constructor ({ id, amountExpected, sourceAccount, plugin, sharedSecret, chunkTimeout }) {
+    super()
+    this.id = id
+    this.amountExpected = !!amountExpected && new BigNumber(amountExpected)
+    this.sourceAccount = sourceAccount
+    this.plugin = plugin
+    this.sharedSecret = sharedSecret
+    this.chunkTimeout = chunkTimeout
+
+    this.acceptingChunks = null
+    this.amountReceived = new BigNumber(0)
+    this.finished = false
+    this.rejectionMessage = null
+    this.chunkInactivityTimer = null
+  }
+
+  accept () {
+    this.acceptingChunks = true
+    this.emit('accept')
+
+    return new Promise((resolve, reject) => {
+      this.once('finish', resolve)
+      this.once('error', reject)
+      this.once('refund_finish', (amountRefunded) => {
+        reject(new Error('Payment was incomplete and was refunded'))
+      })
+      this.once('refund_error', (err) => {
+        reject(new Error(`Payment was incomplete but there was an error refunding the partial payment so ${this.amountReceived.toString(10)} was not refunded`))
+      })
+    })
+  }
+
+  reject (rejectionMessage) {
+    this.acceptingChunks = false
+    this.rejectionMessage = rejectionMessage
+  }
+
+  // TODO add pause method?
+
+  finish () {
+    this.acceptinChunks = false
+    this.rejectionMessage = 'Payment already finished'
+    this.emit('finish')
+  }
+
+  async _handleIncomingTransfer (transfer, paymentData) {
+    if (this.acceptingChunks === null) {
+      this.once('accept', () => {
+        if (Date.parse(transfer.expiresAt) < Date.now()) {
+          debug(`chunk for payment ${this.id} expired while waiting for receiver to accept payment`)
+          return
+        }
+        this._handleIncomingTransfer(transfer, paymentData)
+      })
+      return
+    } else if (this.acceptingChunks === false) {
+      await this.plugin.rejectIncomingTransfer(transfer.id, IlpPacket.serializeIlpError({
+        code: 'F99',
+        name: 'Application Error',
+        data: this.rejectionReason,
+        triggeredAt: new Date(),
+        triggeredBy: this.plugin.getAccount(), // TODO should this be the account with receiver ID?
+        forwardedBy: []
+      }))
+      // TODO handle error
+      return
+    }
+
+    const newPaymentAmount = this.amountReceived.plus(transfer.amount)
+    const fulfillment = cryptoHelper.packetToPreimage(transfer.ilp, this.sharedSecret)
+    // TODO encrypt fulfillment data
+    await this.plugin.fulfillCondition(transfer.id, fulfillment, newPaymentAmount.toString(10))
+    // TODO catch error
+
+    this.amountReceived = newPaymentAmount
+
+    if (paymentData.lastPayment === true) {
+      debug(`received last chunk for payment ${this.id}`)
+      this.finished = true
+    }
+    debug(`received chunk for payment ${this.id}; total received: ${newPaymentAmount.toString(10)}`)
+
+    // Notify the receiver if this chunk was the last one
+    if (this.expected && this.amountReceived.greaterThanOrEqualTo(this.expected)) {
+      this.finish()
+      return
+    }
+
+    if (this.chunkTimeout) {
+      clearTimeout(this.chunkInactivityTimer)
+      this.chunkInactivityTimer = setTimeout(() => {
+        this.emit('chunk_timeout')
+      }, this.chunkTimeout)
+    }
+  }
+
+  async refund () {
+    this.acceptingChunks = false
+    this.rejectionMessage = 'Refund in progress'
+
+    if (!this.sourceAccount) {
+      debug(`refund for payment ${this.id} failed because it did not include a sourceAccount`)
+      return
+    }
+
+    if (this.amountReceived.lessThan(MINIMUM_AMOUNT_FOR_REFUND)) {
+      debug(`refund for payment ${this.id} cancelled because amount was too small (only received: ${this.amountReceived.toString(10)})`)
+      return
+    }
+
+    this.emit('refund_start')
+
+    debug(`sending refund for payment ${this.id}. source amount: ${this.amountReceived.toString(10)})`)
+    let result
+    try {
+      result = await sendBySourceAmount(this.plugin, {
+      }, {
+        destinationAccount: this.sourceAccount,
+        sourceAmount: this.received,
+        sharedSecret: this.sharedSecret,
+        paymentId: this.id
+      })
+      debug(`sent refund for payment ${this.id}. result:`, result)
+    } catch (err) {
+      this.emit('refund_error', err)
+      return
+    }
+    this.emit('refund_finish', result)
+  }
+}
+
 async function listenForPayment (plugin, { sharedSecret, paymentId, timeout, destinationAccount, disableRefund }) {
   debug(`listening for payment ${paymentId}`)
   const paymentPromise = new Promise((resolve, reject) => {
@@ -433,144 +566,30 @@ function listen (plugin, { receiverSecret, sharedSecret, destinationAccount, dis
       // TODO handle error rejecting transfer
     } else if (data.method === 'pay') {
       debug('got incoming payment chunk')
-      const paymentId = data.paymentId
-      if (!payments[paymentId]) {
-        payments[paymentId] = {
-          received: new BigNumber(0),
-          expected: data.destinationAmount && new BigNumber(data.destinationAmount),
-          receivedLastChunk: data.lastPayment,
+      let payment = payments[data.paymentId]
+      if (!payment) {
+        payment = new IncomingPayment({
+          id: data.paymentId,
+          amountExpected: data.destinationAmount && new BigNumber(data.destinationAmount),
           sourceAccount: data.sourceAccount,
           sharedSecret,
-          accepted: null,
-          rejectionReason: null,
-          resolve: null,
-          reject: null,
-          refundTimout: null,
-          longestDelayBetweenChunks: 1000, // wait at least 1 second
-          lastChunkTimestamp: Date.now()
-        }
-
-        // TODO include data in callback
-        handler({
-          id: paymentId,
-          amount: data.destinationAmount,
-          // Receiver calls accept to start accepting chunks. It returns a promise that resolves
-          // when the payment has been fully received or rejects if there is an error
-          accept: () => {
-            debug(`receiver accepted payment ${paymentId}`)
-            payments[paymentId].accepted = true
-            return new Promise((resolve, reject) => {
-              payments[paymentId].resolve = resolve
-              payments[paymentId].reject = reject
-              finalizeTransfer(paymentId, transfer, data)
-            })
-          },
-          reject: (reason) => {
-            debug(`receiver rejected payment ${paymentId} with reason: ${reason}`)
-            payments[paymentId].accepted = false
-            payments[paymentId].rejectionReason = reason
-            return finalizeTransfer(paymentId, transfer, data)
-          }
+          plugin,
+          chunkTimeout: 1000 // TODO better default?
         })
-      } else {
-        await finalizeTransfer(paymentId, transfer, data)
+        payments[data.paymentId] = payment
+
+        handler(payment)
       }
-    }
-  }
 
-  async function finalizeTransfer (paymentId, transfer, paymentData) {
-    // TODO handle if other payments come in while we're still waiting for the receiver to accept or reject
-    const paymentRecord = payments[paymentId]
-
-    if (!paymentRecord.accepted) {
-      // TODO errors should be binary
-      await plugin.rejectIncomingTransfer(transfer.id, {
-        code: 'F99',
-        name: 'Application Error',
-        message: paymentRecord.rejectionReason
-      })
-      // TODO handle error
-      return
-    }
-
-    if (paymentRecord.receivedLastChunk || (!!paymentRecord.expected && paymentRecord.received.greaterThanOrEqualTo(paymentRecord.expected))) {
-      // TODO errors should be binary
-      await plugin.rejectIncomingTransfer(transfer.id, {
-        code: 'F07',
-        name: 'Cannot Receive',
-        message: 'Payment already finished'
-      })
-      // TODO handle error
-      return
-    }
-
-    const newPaymentAmount = paymentRecord.received.plus(transfer.amount)
-    const fulfillment = cryptoHelper.packetToPreimage(transfer.ilp, paymentRecord.sharedSecret)
-    // TODO encrypt fulfillment data
-    await plugin.fulfillCondition(transfer.id, fulfillment, newPaymentAmount.toString(10))
-    // TODO catch error
-    payments[paymentId].received = newPaymentAmount
-    if (paymentData.lastPayment === true) {
-      debug(`received last chunk for payment ${paymentId}`)
-      paymentRecord.receivedLastChunk = true
-    }
-    debug(`received chunk for payment ${paymentId}; total received: ${newPaymentAmount.toString(10)}`)
-
-    // Notify the receiver if this chunk was the last one
-    if (paymentRecord.expected && newPaymentAmount.greaterThanOrEqualTo(paymentRecord.expected)) {
-      paymentRecord.resolve(newPaymentAmount.toString(10))
-      clearTimeout(paymentRecord.refundTimeout)
-    }
-
-    if (!disableRefund) {
-      // Update the refund timeout
-      // Set it to 2x the default transfer timeout if this is the first chunk
-      // or 2x the longest delay between chunks we've seen if not
-      // TODO should we use a moving average to determine the max time we should wait for the next chunk?
-      const delaySinceLastChunk = Date.now() - paymentRecord.lastChunkTimestamp
-      paymentRecord.lastChunkTimestamp = Date.now()
-      if (paymentRecord.refundTimeout === null) {
-        paymentRecord.longestDelayBetweenChunks = delaySinceLastChunk
-        paymentRecord.refundTimeout = setTimeout(() => {
-          refundPayment(paymentId)
-        }, DEFAULT_TRANSFER_TIMEOUT * 1000 * 2)
-      } else {
-        if (delaySinceLastChunk > paymentRecord.longestDelayBetweenChunks) {
-          paymentRecord.longestDelayBetweenChunks = delaySinceLastChunk
-        }
-        clearTimeout(paymentRecord.refundTimeout)
-        paymentRecord.refundTimeout = setTimeout(() => {
-          refundPayment(paymentId)
-        }, paymentRecord.longestDelayBetweenChunks * 2)
+      if (!disableRefund) {
+        payment.once('chunk_timeout', () => payment.refund())
       }
+
+      await payment._handleIncomingTransfer(transfer, data)
     }
   }
 
   // TODO should there be an option to not issue refunds?
-  async function refundPayment (paymentId) {
-    const paymentRecord = payments[paymentId]
-    paymentRecord.accepted = false
-    paymentRecord.rejectionReason = 'Refunding payment'
-
-    if (!paymentRecord.sourceAccount) {
-      debug(`refund for payment ${paymentId} failed because it did not include a sourceAccount`)
-      return
-    }
-
-    if (paymentRecord.received.lessThan(MINIMUM_AMOUNT_FOR_REFUND)) {
-      debug(`refund for payment ${paymentId} cancelled because amount was too small (only received: ${paymentRecord.received.toString(10)})`)
-      return
-    }
-
-    debug(`sending refund for payment ${paymentId}. source amount: ${paymentRecord.received.toString(10)})`)
-    await sendBySourceAmount(plugin, {
-    }, {
-      destinationAccount: paymentRecord.sourceAccount,
-      sourceAmount: paymentRecord.received,
-      sharedSecret: paymentRecord.sharedSecret,
-      paymentId
-    })
-  }
 
   plugin.on('incoming_prepare', listener)
 

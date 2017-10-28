@@ -27,7 +27,7 @@ This is a prototype of a V2 for the ILP Pre-Shared Key Transport Protocol.
 - [x] Handle T04 Insufficient Liquidity errors
 - [x] Sender listens for refund payment
 - [x] Timeout before refund issued adjusts based on expected payment time
-- [ ] Sender accepts partial refunds but knows exactly how much they lost on chunked payment that fails
+- [x] Sender accepts partial refunds but knows exactly how much they lost on chunked payment that fails
 - [ ] Handle other final errors
 - [ ] Workarounds if connectors don't support fulfillment data (as discussed in [RFCs issue #314](https://github.com/interledger/rfcs/issues/314))
 - [ ] Sending payment chunks through multiple connectors

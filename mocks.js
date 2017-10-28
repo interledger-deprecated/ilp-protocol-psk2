@@ -60,8 +60,8 @@ class Plugin extends EventEmitter {
 
 class Connector {
   constructor ({ plugin1, plugin2, mps1, mps2, rate, spread }) {
-    const rate1 = new BigNumber(rate).times(new BigNumber(1).plus(spread))
-    const rate2 = new BigNumber(1).dividedBy(rate).times(new BigNumber(1).minus(spread))
+    const rate1 = new BigNumber(rate).times(new BigNumber(1).minus(spread))
+    const rate2 = new BigNumber(1).dividedBy(rate).times(new BigNumber(1).plus(spread))
 
     plugin1.on('incoming_prepare', (transfer) => this.forwardPayment({
       fromPlugin: plugin1,

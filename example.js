@@ -24,7 +24,7 @@ const pluginB1 = new mocks.Plugin({
 const pluginB2 = new mocks.Plugin({
   account: 'test.b.connector',
   prefix: 'test.b.',
-  balance: '1000000'
+  balance: '10000'
 })
 pluginB1.linkToOtherPlugin(pluginB2)
 pluginB2.linkToOtherPlugin(pluginB1)
@@ -46,8 +46,12 @@ console.log(connector)
 async function main () {
   const receiverSecret = crypto.randomBytes(32)
   psk2.listen(pluginB1, { receiverSecret }, async (incomingPayment) => {
-    const amountReceived = await incomingPayment.accept()
-    console.log('receiver got:', amountReceived)
+    try {
+      const amountReceived = await incomingPayment.accept()
+      console.log('receiver got:', amountReceived)
+    } catch (err) {
+      console.log('receiver got notification of payment that failed', err)
+    }
   })
   const { destinationAccount, sharedSecret } = psk2.generateParams({
     plugin: pluginB1,

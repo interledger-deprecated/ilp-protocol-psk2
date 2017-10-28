@@ -11,14 +11,10 @@ const EventEmitter = require('eventemitter2')
 
 const NULL_CONDITION = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 const DEFAULT_TRANSFER_TIMEOUT = 30
-// TODO what is a reasonable timeout if we're sending multiple payment chunks?
-const DEFAULT_PAYMENT_TIMEOUT = 120
 // TODO what is a reasonable transfer amount to start?
 const DEFAULT_TRANSFER_START_AMOUNT = 1000
 const PAYMENT_SIZE_INCREASE_FACTOR = 1.1
 const PAYMENT_SIZE_DECREASE_FACTOR = 0.5
-const MS_TO_WAIT_AFTER_EXPIRY_BEFORE_REFUND = 30000
-const MINIMUM_AMOUNT_FOR_REFUND = 100
 
 // TODO add rate cache
 async function quoteBySourceAmount (plugin, {
@@ -181,6 +177,7 @@ async function _sendPayment (plugin, {
         const sourceAmountRemaining = destinationAmountRemaining.dividedBy(rate)
         if (sourceAmountRemaining.lessThanOrEqualTo(transferAmount)) {
           transferAmount = BigNumber.max(sourceAmountRemaining.round(0), 1)
+          paymentDetails.lastPayment = true
         }
 
         if (sourceAmount && amountSent.plus(transferAmount).greaterThan(sourceAmount)) {
@@ -287,7 +284,6 @@ async function _sendPayment (plugin, {
 
     let amountReturned = 0
     try {
-      // TODO accept partial refund
       amountReturned = await listenForPayment(plugin, {
         sharedSecret,
         paymentId,
@@ -300,7 +296,7 @@ async function _sendPayment (plugin, {
     } catch (err) {
       debug(`error waiting for refund for payment ${paymentId}:`, err)
     }
-    throw new Error(`Sending payment ${paymentId} failed. Amount not returned: ${amountSent.minus(amountReturned).toString(10)}`)
+    throw new Error(`Sending payment ${paymentId} failed. Amount not returned: ${amountSent.minus(amountReturned || 0).toString(10)}`)
   }
 
   await sendChunksAdjustingAmount()
@@ -389,29 +385,34 @@ class IncomingPayment extends EventEmitter {
     this.acceptingChunks = true
     this.emit('accept')
 
+    // TODO only return a promise if the user is actually going to use it
     return new Promise((resolve, reject) => {
-      this.once('finish', resolve)
-      this.once('error', reject)
-      this.once('refund_finish', (amountRefunded) => {
-        reject(new Error('Payment was incomplete and was refunded'))
-      })
-      this.once('refund_error', (err) => {
-        reject(new Error(`Payment was incomplete but there was an error refunding the partial payment so ${this.amountReceived.toString(10)} was not refunded`))
-      })
+      this.once('finish', () => resolve(this.amountReceived.toString(10)))
+      this.on('error', reject)
     })
   }
 
   reject (rejectionMessage) {
     this.acceptingChunks = false
     this.rejectionMessage = rejectionMessage
+    this.emit('end')
   }
 
   // TODO add pause method?
 
   finish () {
-    this.acceptinChunks = false
+    this.acceptingChunks = false
     this.rejectionMessage = 'Payment already finished'
     this.emit('finish')
+    this.end()
+  }
+
+  end () {
+    this.acceptingChunks = false
+    if (!this.rejectionMessage) {
+      this.rejectionMessage = 'Payment already ended'
+    }
+    this.emit('end')
   }
 
   async _handleIncomingTransfer (transfer, paymentData) {
@@ -445,18 +446,21 @@ class IncomingPayment extends EventEmitter {
 
     this.amountReceived = newPaymentAmount
 
-    if (paymentData.lastPayment === true) {
-      debug(`received last chunk for payment ${this.id}`)
-      this.finished = true
-    }
     debug(`received chunk for payment ${this.id}; total received: ${newPaymentAmount.toString(10)}`)
 
-    // Notify the receiver if this chunk was the last one
-    if (this.expected && this.amountReceived.greaterThanOrEqualTo(this.expected)) {
+    // Check if the payment is done
+    if ((this.amountExpected && this.amountReceived.greaterThanOrEqualTo(this.amountExpected))
+     || (!this.amountExpected && paymentData.lastPayment === true)) {
       this.finish()
+      return
+    } else if (paymentData.lastPayment === true) {
+      this.emit('error', new Error('Payment was ended before we received the expected amount'))
+      this.end()
       return
     }
 
+    // chunk_timeout event is only informational
+    // to stop the payment, the user must call refund() or end()
     if (this.chunkTimeout) {
       clearTimeout(this.chunkInactivityTimer)
       this.chunkInactivityTimer = setTimeout(() => {
@@ -474,11 +478,6 @@ class IncomingPayment extends EventEmitter {
       return
     }
 
-    if (this.amountReceived.lessThan(MINIMUM_AMOUNT_FOR_REFUND)) {
-      debug(`refund for payment ${this.id} cancelled because amount was too small (only received: ${this.amountReceived.toString(10)})`)
-      return
-    }
-
     this.emit('refund_start')
 
     debug(`sending refund for payment ${this.id}. source amount: ${this.amountReceived.toString(10)})`)
@@ -487,16 +486,20 @@ class IncomingPayment extends EventEmitter {
       result = await sendBySourceAmount(this.plugin, {
       }, {
         destinationAccount: this.sourceAccount,
-        sourceAmount: this.received,
+        sourceAmount: this.amountReceived,
         sharedSecret: this.sharedSecret,
         paymentId: this.id
       })
       debug(`sent refund for payment ${this.id}. result:`, result)
     } catch (err) {
       this.emit('refund_error', err)
+      this.emit('error', new Error('Payment and refund both failed'))
+      this.end()
       return
     }
     this.emit('refund_finish', result)
+    this.emit('error', new Error('Payment failed and was refunded'))
+    this.end()
   }
 }
 
@@ -509,9 +512,17 @@ async function listenForPayment (plugin, { sharedSecret, paymentId, timeout, des
       disableRefund
     }, async (payment) => {
       if (payment.id === paymentId) {
-        const amountReceived = await payment.accept()
-        resolve(amountReceived)
+        let amountReceived
+        try {
+         amountReceived = await payment.accept()
+        } catch (err) {
+          stopListening()
+          reject(err)
+          return
+        }
+        debug(`received ${amountReceived} for payment ${paymentId}`)
         stopListening()
+        resolve(amountReceived)
       }
     })
   })
@@ -519,7 +530,7 @@ async function listenForPayment (plugin, { sharedSecret, paymentId, timeout, des
   // TODO what if we've already gotten some of the money but not all?
   let timer
   const timeoutPromise = new Promise((resolve, reject) => {
-    setTimeout(() => {
+    timer = setTimeout(() => {
       debug(`timed out waiting for payment ${paymentId}`)
       reject(new Error('timed out waiting for payment ' + paymentId))
     }, (timeout || DEFAULT_PAYMENT_TIMEOUT) * 1000)
@@ -578,11 +589,11 @@ function listen (plugin, { receiverSecret, sharedSecret, destinationAccount, dis
         })
         payments[data.paymentId] = payment
 
-        handler(payment)
-      }
+        if (!disableRefund) {
+          payment.once('chunk_timeout', () => payment.refund())
+        }
 
-      if (!disableRefund) {
-        payment.once('chunk_timeout', () => payment.refund())
+        handler(payment)
       }
 
       await payment._handleIncomingTransfer(transfer, data)

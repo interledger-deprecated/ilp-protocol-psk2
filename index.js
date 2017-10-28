@@ -417,6 +417,7 @@ class IncomingPayment extends EventEmitter {
 
   async _handleIncomingTransfer (transfer, paymentData) {
     if (this.acceptingChunks === null) {
+      debug(`got chunk for payment ${this.id} but the receiver hasn't accepted or rejected the payment yet`)
       this.once('accept', () => {
         if (Date.parse(transfer.expiresAt) < Date.now()) {
           debug(`chunk for payment ${this.id} expired while waiting for receiver to accept payment`)
@@ -426,27 +427,39 @@ class IncomingPayment extends EventEmitter {
       })
       return
     } else if (this.acceptingChunks === false) {
-      await this.plugin.rejectIncomingTransfer(transfer.id, IlpPacket.serializeIlpError({
-        code: 'F99',
-        name: 'Application Error',
-        data: this.rejectionReason,
-        triggeredAt: new Date(),
-        triggeredBy: this.plugin.getAccount(), // TODO should this be the account with receiver ID?
-        forwardedBy: []
-      }))
-      // TODO handle error
+      try {
+        await this.plugin.rejectIncomingTransfer(transfer.id, IlpPacket.serializeIlpError({
+          code: 'F99',
+          name: 'Application Error',
+          data: this.rejectionReason,
+          triggeredAt: new Date(),
+          triggeredBy: this.plugin.getAccount(), // TODO should this be the account with receiver ID?
+          forwardedBy: []
+        }))
+      } catch (err) {
+        debug(`error rejecting incoming chunk for payment ${this.id}`, err)
+      }
       return
     }
 
     const newPaymentAmount = this.amountReceived.plus(transfer.amount)
     const fulfillment = cryptoHelper.packetToPreimage(transfer.ilp, this.sharedSecret)
     // TODO encrypt fulfillment data
-    await this.plugin.fulfillCondition(transfer.id, fulfillment, newPaymentAmount.toString(10))
-    // TODO catch error
+    try {
+      await this.plugin.fulfillCondition(transfer.id, fulfillment, newPaymentAmount.toString(10))
+      // TODO wait for the 'incoming_fulfill' event
+    } catch (err) {
+      // TODO should we emit an error or just ignore this and wait for the timeout?
+      debug(`error submitting fulfillment for chunk of payment ${this.id}`, err)
+      return
+    }
 
     this.amountReceived = newPaymentAmount
 
     debug(`received chunk for payment ${this.id}; total received: ${newPaymentAmount.toString(10)}`)
+    this.emit('chunk', {
+      amount: transfer.amount
+    })
 
     // Check if the payment is done
     if ((this.amountExpected && this.amountReceived.greaterThanOrEqualTo(this.amountExpected))
@@ -568,13 +581,20 @@ function listen (plugin, { receiverSecret, sharedSecret, destinationAccount, dis
     // TODO the fact that it's a quote should probably be communicated in headers
     if (data.method === 'quote') {
       debug('got incoming quote request')
-      // TODO errors should be binary
-      plugin.rejectIncomingTransfer(transfer.id, {
-        code: 'F99',
-        name: 'Application Error',
-        message: transfer.amount
-      })
-      // TODO handle error rejecting transfer
+      try {
+        await plugin.rejectIncomingTransfer(transfer.id, IlpPacket.serializeIlpError({
+          code: 'F99',
+          name: 'Application Error',
+          // TODO quote response should be binary and encrypted
+          data: transfer.amount,
+          triggeredAt: new Date(),
+          triggeredBy: plugin.getAccount(),
+          forwardedBy: []
+        }))
+      } catch (err) {
+        debug('error responding to quote request', err)
+      }
+      return
     } else if (data.method === 'pay') {
       debug('got incoming payment chunk')
       let payment = payments[data.paymentId]

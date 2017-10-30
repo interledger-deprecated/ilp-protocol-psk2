@@ -1,3 +1,4 @@
+const assert = require('assert')
 const crypto = require('crypto')
 const IlpPacket = require('ilp-packet')
 const oer = require('oer-utils')
@@ -9,6 +10,7 @@ const Long = require('long')
 const debug = require('debug')('ilp:psk2')
 const EventEmitter = require('eventemitter2')
 
+const MAX_UINT64 = '18446744073709551615'
 const NULL_CONDITION = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 const DEFAULT_TRANSFER_TIMEOUT = 30
 // TODO what is a reasonable transfer amount to start?
@@ -68,285 +70,343 @@ async function quoteBySourceAmount (plugin, {
   return destinationAmount
 }
 
-async function sendByDestinationAmount (plugin, {
-  timeout,
-  connector
-}, {
+async function send ({
+  plugin,
   destinationAccount,
-  destinationAmount,
-  maxSourceAmount,
   sharedSecret,
+  sourceAmount,
+  connector,
   paymentId
 }) {
-  const result = await _sendPayment(plugin, {
-    timeout,
-    connector
-  }, {
+  const payment = new OutgoingPayment({
+    plugin,
     destinationAccount,
-    destinationAmount,
-    sourceAmount: maxSourceAmount,
     sharedSecret,
+    connector,
     id: paymentId
   })
-  return result
-}
 
-async function sendBySourceAmount (plugin, {
-  timeout,
-  connector
-}, {
-  destinationAccount,
-  sourceAmount,
-  sharedSecret,
-  paymentId
-}) {
-  const result = await _sendPayment(plugin, {
-    timeout,
-    connector
-  }, {
-    destinationAccount,
-    sourceAmount,
-    sharedSecret,
-    id: paymentId
-  })
-  return result
-}
+  while (payment.amountSent.lessThan(sourceAmount)) {
+    const sourceAmountLeftToSend = new BigNumber(sourceAmount).minus(payment.amountSent)
+    const amount = BigNumber.min(sourceAmountLeftToSend, payment.recommendedTransferAmount)
+    const result = await payment.sendChunk({ amount })
 
-// Send a specific source amount or deliver a destination amount.
-// If both sourceAmount and destinationAmount are specified, it
-// will try to deliver the destinationAmount without going over the sourceAmount
-async function _sendPayment (plugin, {
-  connector
-}, {
-  destinationAccount,
-  destinationAmount,
-  sourceAmount,
-  sharedSecret,
-  id
-}) {
-  // TODO send data along with payment?
-  // TODO add option to fail instead of chunking payment
-  // TODO add cache for destinations and max payment sizes
-
-  const paymentId = id || uuid()
-  debug(`sending new payment ${paymentId} to ${destinationAccount}. destinationAmount: ${destinationAmount}, sourceAmount: ${sourceAmount}`)
-
-  // TODO make refund account suffix indistinguishable from receiver address
-  const refundAccount = plugin.getAccount() + '.' + crypto.randomBytes(24).toString('base64')
-  debug(`generated refund account: ${refundAccount}`)
-
-  // TODO (more complicated) send through multiple connectors if there are multiple
-  const firstConnector = connector || (plugin.getInfo().connectors && plugin.getInfo().connectors[0])
-
-  // TODO should the per-transfer timeout be configurable?
-  const transferTimeout = DEFAULT_TRANSFER_TIMEOUT * 1000
-
-  // TODO if sourceAmount and destinationAmount are set, do an informational quote
-  // first to see if we're likely to be able to complete the payment
-
-  let amountSent = new BigNumber(0)
-  let amountDelivered = new BigNumber(0)
-  let numChunks = 0
-  const startTime = Date.now()
-
-  async function sendChunksAdjustingAmount () {
-    // Start sending chunks using a default amount, then adjust it upwards or downwards
-    let transferAmount = new BigNumber(DEFAULT_TRANSFER_START_AMOUNT)
-    let maximumTransferAmount
-
-    // Keep sending payments until we've reached the desired destination amount
-    while (true) {
-      // TODO don't send these details on every packet, only first one
-      const paymentDetails = {
-        method: 'pay',
-        paymentId,
-        destinationAmount,
-        lastPayment: false,
-        sourceAccount: refundAccount,
-        nonce: base64url(crypto.randomBytes(16))
-      }
-
-      // Figure out if we've already sent enough or if we're close to the end
-      if (destinationAmount) {
-        if (amountDelivered.greaterThanOrEqualTo(destinationAmount)) {
-          return
-        }
-        // TODO should we use the overall rate or the last chunk's rate?
-        const rate = amountDelivered.dividedBy(amountSent)
-        const destinationAmountRemaining = new BigNumber(destinationAmount).minus(amountDelivered)
-        const sourceAmountRemaining = destinationAmountRemaining.dividedBy(rate)
-        if (sourceAmountRemaining.lessThanOrEqualTo(transferAmount)) {
-          transferAmount = BigNumber.max(sourceAmountRemaining.round(0), 1)
-          paymentDetails.lastPayment = true
-        }
-
-        if (sourceAmount && amountSent.plus(transferAmount).greaterThan(sourceAmount)) {
-          debug(`sending another chunk for payment ${paymentId} would exceed source amount limit`)
-          return listenForRefund()
-        }
+    if (!result.sent) {
+      if (result.retry && result.wait) {
+        await new Promise((resolve, reject) => {
+          setTimeout(() => resolve(), result.wait)
+        })
       } else {
-        if (amountSent.greaterThanOrEqualTo(sourceAmount)) {
-          return
-        }
-        const sourceAmountRemaining = new BigNumber(sourceAmount).minus(amountSent)
-        if (sourceAmountRemaining.lessThanOrEqualTo(transferAmount)) {
-          transferAmount = BigNumber.max(sourceAmountRemaining.round(0), 1)
-          paymentDetails.lastPayment = true
-        }
-      }
-
-      // TODO encrypt packet data
-      const packetData = Buffer.from(JSON.stringify(paymentDetails), 'utf8')
-      const packet = IlpPacket.serializeIlpPayment({
-        account: destinationAccount,
-        amount: '0',
-        data: packetData
-      })
-      const transfer = {
-        id: uuid(),
-        from: plugin.getAccount(),
-        to: firstConnector,
-        ledger: plugin.getInfo().prefix,
-        amount: transferAmount.toString(10),
-        ilp: base64url(packet),
-        executionCondition: cryptoHelper.packetToCondition(sharedSecret, packet),
-        expiresAt: new Date(Date.now() + transferTimeout).toISOString()
-      }
-
-      debug(`sending transfer for payment ${paymentId}:`, transfer)
-
-      const transferResultPromise = _waitForTransferResult(plugin, transfer.id)
-      await plugin.sendTransfer(transfer)
-      const result = await transferResultPromise
-      // TODO response data should be encrypted
-      debug('got chunk result', result)
-
-      // Adjust transfer amount up or down based on whether it succeeded or failed
-      if (result.fulfillment) {
-        // sending succeeded
-        amountDelivered = BigNumber.max(result.ilp, amountDelivered)
-        amountSent = amountSent.plus(transfer.amount)
-        numChunks++
-
-        debug(`sent chunk for payment ${paymentId}. amount sent: ${amountSent.toString(10) + (sourceAmount ? ' (of ' + sourceAmount + ')' : '')}, amount delivered: ${amountDelivered.toString(10) + (destinationAmount ? ' (of ' + destinationAmount + ')' : '')} (rate: ${amountDelivered.dividedBy(amountSent).toString(10)})`)
-
-        // Increase the transfer amount as long as it doesn't go over the path's Maximum Payment Size
-        const potentialTransferAmount = transferAmount.times(PAYMENT_SIZE_INCREASE_FACTOR).truncated()
-        if (!maximumTransferAmount || potentialTransferAmount.lessThanOrEqualTo(maximumTransferAmount)) {
-          debug(`increasing transfer amount by default factor`)
-          transferAmount = potentialTransferAmount
-        }
-      } else {
-        // sending failed
-        // TODO handle if we don't get an error back
-        const ilpError = IlpPacket.deserializeIlpError(Buffer.from(result.ilp || '', 'base64'))
-        debug('sending chunk failed, got error:', ilpError)
-
-        // TODO handle other types of errors (no liquidity, can't find receiver, payment already finished, etc)
-        // TODO don't retry sending forever
-        switch (ilpError.code) {
-          case 'F08': // Payment Too Large
-            // TODO handle if the error data doesn't contain the amount values
-            const dataReader = oer.Reader.from(Buffer.from(ilpError.data, 'ascii'))
-            const amountArrived = Long.fromBits.apply(null, dataReader.readUInt64().concat([true])).toString()
-            const amountLimit = Long.fromBits.apply(null, dataReader.readUInt64().concat([true])).toString()
-            let decreaseFactor = new BigNumber(amountLimit).dividedBy(amountArrived)
-            if (decreaseFactor.greaterThanOrEqualTo(1)) {
-              // something is wrong with the error values we got, use the default
-              decreaseFactor = PAYMENT_SIZE_DECREASE_FACTOR
-            }
-            debug(`decreasing transfer amount by factor of: ${decreaseFactor.toString(10)}`)
-
-            // the true path MPS might be lower than this but it definitely won't be higher
-            // so this might get adjusted down more if we get more payment errors
-            maximumTransferAmount = BigNumber.max(transferAmount.times(decreaseFactor).truncated(), 1)
-            transferAmount = maximumTransferAmount
-            break
-          case 'T04': // Insufficient Liquidity
-            // TODO switch to a different path if we can
-            // TODO should we wait a bit and try again or fail immediately?
-            debug('path has insufficient liquidity')
-            return listenForRefund()
-
-            break
-          default:
-            // TODO is this the right default behavior? should we keep trying?
-            debug('decreasing transfer amount by default factor')
-            transferAmount = BigNumber.max(transferAmount.times(PAYMENT_SIZE_DECREASE_FACTOR).truncated(), 1)
-            break
-        }
+        return payment.waitForRefund()
       }
     }
   }
 
-  async function listenForRefund () {
-    debug(`waiting for refund for payment ${paymentId}`)
-
-    let amountReturned = 0
-    try {
-      amountReturned = await listenForPayment(plugin, {
-        sharedSecret,
-        paymentId,
-        // TODO how long should we wait for the refund?
-        timeout: 10,
-        destinationAccount: refundAccount,
-        disableRefund: true
-      })
-      debug(`got refund for payment ${paymentId} of ${amountReturned}`)
-    } catch (err) {
-      debug(`error waiting for refund for payment ${paymentId}:`, err)
-    }
-    throw new Error(`Sending payment ${paymentId} failed. Amount not returned: ${amountSent.minus(amountReturned || 0).toString(10)}`)
-  }
-
-  await sendChunksAdjustingAmount()
-
-  debug(`sent payment ${paymentId}. delivered ${amountDelivered.toString(10)} to ${destinationAccount} with ${numChunks} chunks in ${Date.now() - startTime}ms`)
   return {
-    sourceAmount: amountSent.toString(10),
-    destinationAmount: amountDelivered.toString(10)
+    sourceAmount: payment.amountSent.toString(10),
+    destinationAmount: payment.amountDelivered.toString(10)
   }
 }
 
-// TODO don't set up and tear down listeners for every transfer
-async function _waitForTransferResult (plugin, targetTransferId) {
-  return new Promise((resolve, reject) => {
-    function fulfillListener (transfer, fulfillment, ilp) {
-      if (transfer.id === targetTransferId) {
-        cleanup()
-        resolve({
-          fulfillment,
-          ilp
-        })
-      }
-    }
-
-    function rejectListener (transfer, ilp) {
-      if (transfer.id === targetTransferId) {
-        cleanup()
-        // TODO handle specific errors
-        resolve({
-          ilp
-        })
-      }
-    }
-
-    function cancelListener (transfer, cancellationReason) {
-      if (transfer.id === targetTransferId) {
-        cleanup()
-        // TODO handle specific errors
-        reject(new Error('transfer cancelled'))
-      }
-    }
-    function cleanup () {
-      plugin.removeListener('outgoing_fulfill', fulfillListener)
-      plugin.removeListener('outgoing_reject', rejectListener)
-      plugin.removeListener('outgoing_cancel', cancelListener)
-    }
-    plugin.on('outgoing_fulfill', fulfillListener)
-    plugin.on('outgoing_reject', rejectListener)
-    plugin.on('outgoing_cancel', cancelListener)
+async function deliver ({
+  plugin,
+  destinationAccount,
+  sharedSecret,
+  destinationAmount,
+  connector,
+  paymentId
+}) {
+  const payment = new OutgoingPayment({
+    plugin,
+    destinationAccount,
+    sharedSecret,
+    connector,
+    id: paymentId
   })
+
+  // TODO try to hit the destination amount exactly by adjusting the chunk size before the last one
+  while (payment.amountDelivered.lessThan(destinationAmount)) {
+    const rate = payment.getRate()
+    let amount
+    if (rate.equals(0)) {
+      amount = payment.recommendedTransferAmount
+    } else {
+      const amountLeftToDeliver = new BigNumber(destinationAmount).minus(payment.amountDelivered)
+      const sourceAmountLeftToSend = BigNumber.max(amountLeftToDeliver.dividedBy(rate).round(0), 1)
+      amount = BigNumber.min(sourceAmountLeftToSend, payment.recommendedTransferAmount)
+    }
+
+    const result = await payment.sendChunk({ amount })
+
+    if (result.sent) {
+      continue
+    }
+
+    if (result.retry) {
+      if (result.wait) {
+        await new Promise((resolve, reject) => {
+          setTimeout(() => resolve(), result.wait)
+        })
+      } else {
+        continue
+      }
+    } else {
+      return payment.waitForRefund()
+    }
+  }
+
+  return {
+    sourceAmount: payment.amountSent.toString(10),
+    destinationAmount: payment.amountDelivered.toString(10)
+  }
+}
+
+class OutgoingPayment extends EventEmitter {
+  constructor ({
+    id,
+    destinationAccount,
+    sharedSecret,
+    plugin,
+    chunkTimeout,
+    connector
+  }) {
+    super()
+    this.id = id || uuid()
+    this.destinationAccount = destinationAccount
+    this.sharedSecret = sharedSecret
+    this.plugin = plugin
+    this.chunkTimeout = chunkTimeout || DEFAULT_TRANSFER_TIMEOUT * 1000
+    this.firstConnector = connector || (plugin.getInfo().connectors && plugin.getInfo().connectors[0])
+    // TODO make sure we have a connector to send to
+
+    debug(`sending new payment ${this.id} to ${destinationAccount}`)
+
+    // TODO add option to disable refund
+    this.refundAccount = this.plugin.getAccount() + '.' + base64url(crypto.randomBytes(24))
+
+    // map of transferId to boolean whether transfer succeeded or failed (null indicates unresolved)
+    this.transfers = {}
+    this.numChunks = 0
+    this.amountSent = new BigNumber(0)
+    this.amountDelivered = new BigNumber(0)
+    this.maximumTransferAmount = new BigNumber(MAX_UINT64)
+    // TODO should this be configurable?
+    this.recommendedTransferAmount = new BigNumber(DEFAULT_TRANSFER_START_AMOUNT)
+
+    this._fulfillListener = this._handleFulfill.bind(this)
+    this._rejectListener = this._handleReject.bind(this)
+    this._cancelListener = this._handleCancel.bind(this)
+    this.plugin.on('outgoing_fulfill', this._fulfillListener)
+    this.plugin.on('outgoing_reject', this._rejectListener)
+    this.plugin.on('outgoing_cancel', this._cancelListener)
+
+    // TODO start listening for refund
+  }
+
+  // TODO add method to discover path Maximum Payment Size
+
+  getRate () {
+    // TODO should we use a weighted average?
+    if (this.amountSent.greaterThanOrEqualTo(1)) {
+      return this.amountDelivered.dividedBy(this.amountSent)
+    } else {
+      // TODO send a test payment to determine the rate
+      return new BigNumber(0)
+    }
+  }
+
+  async sendChunk({ amount, headers }) {
+    assert(new BigNumber(amount).greaterThanOrEqualTo(0), 'cannot send transfer of 0 or negative amount')
+    // TODO what if the amount is bigger than the maximum transfer amount?
+
+    // TODO should the headers be able to overwrite these values?
+    const paymentDetails = Object.assign({}, headers, {
+      method: 'pay',
+      paymentId: this.id,
+      // TODO add a way to indicate a minimum chunk destination amount the receiver will accept (and clarify destinationAmount is total destination amount)
+      sourceAccount: this.refundAccount,
+      nonce: base64url(crypto.randomBytes(16))
+    })
+
+    debug(`sending chunk for payment ${this.id} of amount: ${amount}`)
+
+    const packetData = Buffer.from(JSON.stringify(paymentDetails), 'utf8')
+    const packet = IlpPacket.serializeIlpPayment({
+      account: this.destinationAccount,
+      amount: '0',
+      data: packetData
+    })
+    const transfer = {
+      id: uuid(),
+      from: this.plugin.getAccount(),
+      to: this.firstConnector,
+      ledger: this.plugin.getInfo().prefix,
+      amount: new BigNumber(amount).toString(10),
+      ilp: base64url(packet),
+      executionCondition: cryptoHelper.packetToCondition(this.sharedSecret, packet),
+      expiresAt: new Date(Date.now() + this.chunkTimeout).toISOString()
+    }
+    this.transfers[transfer.id] = null
+
+    try {
+      await this.plugin.sendTransfer(transfer)
+    } catch (err) {
+      debug(`error sending transfer for payment ${this.id}`, err)
+      this.emit('chunk_error', err)
+      throw err
+    }
+
+    const result = await new Promise((resolve, reject) => {
+      this.once('_chunk_result_' + transfer.id, resolve)
+    })
+
+    if (result.sent) {
+      debug(`sent chunk for payment ${this.id}. amount sent: ${this.amountSent.toString(10)}, amount delivered: ${this.amountDelivered.toString(10)}, rate: ${this.getRate()}`)
+    } else {
+      debug(`sending chunk for payment ${this.id} failed`)
+    }
+
+    return result
+  }
+
+  end () {
+    _cleanupListeners()
+    this.emit('end')
+  }
+
+  _cleanupListeners () {
+    this.plugin.removeListener('outgoing_fulfill', this._fulfillListener)
+    this.plugin.removeListener('outgoing_reject', this._rejectListener)
+    this.plugin.removeListener('outgoing_cancel', this._cancelListener)
+  }
+
+  _handleFulfill (transfer, fulfillment, ilp) {
+    if (this.transfers[transfer.id] !== null) {
+      return
+    }
+
+    this.transfers[transfer.id] = true
+
+    // TODO parse amountDelivered from ilp packet
+    this.amountDelivered = BigNumber.max(ilp, this.amountDelivered)
+    this.amountSent = this.amountSent.plus(transfer.amount)
+    this.numChunks++
+
+    // Increase the transfer size if it isn't already too large
+    if (!this.maximumTransferAmount || this.recommendedTransferAmount.times(PAYMENT_SIZE_INCREASE_FACTOR).lessThanOrEqualTo(this.maximumTransferAmount)) {
+      this.recommendedTransferAmount = this.recommendedTransferAmount.times(PAYMENT_SIZE_INCREASE_FACTOR).truncated()
+    }
+
+    this.emit('chunk_fulfill', transfer)
+    this.emit('_chunk_result_' + transfer.id, {
+      sent: true
+    })
+  }
+
+  _handleReject (transfer, ilp) {
+    if (this.transfers[transfer.id] !== null) {
+      return
+    }
+
+    this.transfers[transfer.id] = false
+
+    let ilpError
+    try {
+      ilpError = IlpPacket.deserializeIlpError(Buffer.from(ilp || '', 'base64'))
+    } catch (err) {
+      debug(`error deserializing ILP error for chunk of payment ${this.id}`, ilp, err)
+      this.emit('chunk_error', transfer, err)
+      return
+    }
+
+    const sent = false
+    let retry = true
+    let wait = 0
+
+    // TODO handle other types of errors (no liquidity, can't find receiver, payment already finished, etc)
+    // TODO don't retry sending forever
+    switch (ilpError.code) {
+      case 'F08': // Payment Too Large
+        let decreaseFactor
+        try {
+          const dataReader = oer.Reader.from(Buffer.from(ilpError.data, 'ascii'))
+          const amountArrived = Long.fromBits.apply(null, dataReader.readUInt64().concat([true])).toString()
+          const amountLimit = Long.fromBits.apply(null, dataReader.readUInt64().concat([true])).toString()
+          decreaseFactor = new BigNumber(amountLimit).dividedBy(amountArrived)
+
+          // the true path MPS might be lower than this but it definitely won't be higher
+          // so this might get adjusted down more if we get more payment errors
+          this.maximumTransferAmount = BigNumber.min(
+            this.maximumTransferAmount,
+            new BigNumber(transfer.amount).times(decreaseFactor).truncated(),
+            new BigNumber(transfer.amount).minus(1).truncated())
+          debug(`chunk for payment ${this.id} got F08 Payment Too Large error. Path Maximum Payment Size is less than or equal to ${this.maximumTransferAmount.toString(10)}`)
+        } catch (err) {
+          debug(`chunk for payment ${this.id} rejected with F08 Payment Too Large Error but it did not include the additional data to determine how much we should reduce the payment by:`, ilpError.data)
+
+          // We don't know exactly what the MPS is but we know it's definitely smaller than this transfer amount
+          this.maximumTransferAmount = BigNumber.min(this.maximumTransferAmount, transfer.amount)
+        }
+
+        if (this.maximumTransferAmount.lessThanOrEqualTo(1)) {
+          this.maximumTransferAmount = new BigNumber(1)
+        }
+
+        if (!decreaseFactor || decreaseFactor.greaterThanOrEqualTo(1)) {
+          // something is wrong with the error values we got, use the default
+          decreaseFactor = new BigNumber(PAYMENT_SIZE_DECREASE_FACTOR)
+        }
+
+        if (new BigNumber(transfer.amount).lessThanOrEqualTo(this.recommendedTransferAmount)) {
+          this.recommendedTransferAmount = BigNumber.min(decreaseFactor.times(transfer.amount).truncated(), this.maximumTransferAmount)
+          debug(`decreasing recommended transfer amount to ${this.recommendedTransferAmount.toString(10)}`)
+        }
+
+        this.recommendedTransferAmount = BigNumber.min(this.maximumTransferAmount, this.recommendedTransferAmount)
+
+        if (this.recommendedTransferAmount.lessThanOrEqualTo(1)) {
+          this.recommendedTransferAmount = new BigNumber(1)
+        }
+
+        break
+      case 'T04': // Insufficient Liquidity
+        // TODO switch to a different path if we can
+        debug('path has insufficient liquidity')
+
+        retry = false
+        break
+      default:
+        // TODO is this the right default behavior? should we keep trying?
+        // TODO count the number of errors we've gotten and stop at some point
+        debug('decreasing transfer amount by default factor')
+        this.recommendedTransferAmount = BigNumber.max(transferAmount.times(PAYMENT_SIZE_DECREASE_FACTOR).truncated(), 1)
+        break
+    }
+
+    this.emit('chunk_reject', transfer, ilpError)
+    this.emit('_chunk_result_' + transfer.id, {
+      sent,
+      retry,
+      wait
+    })
+  }
+
+  _handleCancel (transfer, rejectionReason) {
+    if (this.transfers[transfer.id] !== null) {
+      return
+    }
+
+    this.transfers[transfer.id] = false
+
+    // TODO handle cancel events (timeout + others)
+    debug(`chunk for payment ${this.id} was cancelled`, rejectionReason)
+    this.emit('chunk_error', transfer, new Error(`${rejectionReason.code} ${rejectionReason.name}: ${rejectionReason.message}`))
+    this.emit('_chunk_result_' + transfer.id, {
+      sent: false,
+      retry: true,
+      wait: 0,
+    })
+  }
 }
 
 function generateParams ({
@@ -496,8 +556,9 @@ class IncomingPayment extends EventEmitter {
     debug(`sending refund for payment ${this.id}. source amount: ${this.amountReceived.toString(10)})`)
     let result
     try {
-      result = await sendBySourceAmount(this.plugin, {
-      }, {
+      // TODO subtract each chunk sent from the amountReceived
+      result = await send({
+        plugin: this.plugin,
         destinationAccount: this.sourceAccount,
         sourceAmount: this.amountReceived,
         sharedSecret: this.sharedSecret,
@@ -640,5 +701,5 @@ function _accountToSharedSecret ({ account, pluginAccount, receiverSecret }) {
 exports.generateParams = generateParams
 exports.listen = listen
 exports.quoteBySourceAmount = quoteBySourceAmount
-exports.sendByDestinationAmount = sendByDestinationAmount
-exports.sendBySourceAmount = sendBySourceAmount
+exports.send = send
+exports.deliver = deliver

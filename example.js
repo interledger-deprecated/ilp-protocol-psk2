@@ -24,7 +24,7 @@ const pluginB1 = new mocks.Plugin({
 const pluginB2 = new mocks.Plugin({
   account: 'test.b.connector',
   prefix: 'test.b.',
-  balance: '10000'
+  balance: '1000000'
 })
 pluginB1.linkToOtherPlugin(pluginB2)
 pluginB2.linkToOtherPlugin(pluginB1)
@@ -65,17 +65,19 @@ async function main () {
   //})
   //console.log('got quote:', destinationAmount)
 
-  const destinationResult = await psk2.sendByDestinationAmount(pluginA1, {}, {
+  const destinationResult = await psk2.deliver({
+    plugin: pluginA1,
     destinationAccount,
     destinationAmount: '10000',
     sharedSecret
   })
   console.log('sent payment with fixed destination amount:', destinationResult)
 
-  //const sourceResult = await psk2.sendBySourceAmount(pluginA1, {}, {
-    //destinationAccount,
-    //sourceAmount: '10000',
-    //sharedSecret
+  //const sourceResult = await psk2.send({
+  //plugin: pluginA1,
+  //destinationAccount,
+  //sourceAmount: '10000',
+  //sharedSecret
   //})
   //console.log('sent payment with fixed source amount:', sourceResult)
   process.exit(0)

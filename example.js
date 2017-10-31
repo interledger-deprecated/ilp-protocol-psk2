@@ -24,7 +24,7 @@ const pluginB1 = new mocks.Plugin({
 const pluginB2 = new mocks.Plugin({
   account: 'test.b.connector',
   prefix: 'test.b.',
-  balance: '1000000'
+  balance: '10000'
 })
 pluginB1.linkToOtherPlugin(pluginB2)
 pluginB2.linkToOtherPlugin(pluginB1)

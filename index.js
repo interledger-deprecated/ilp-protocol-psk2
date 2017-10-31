@@ -97,7 +97,9 @@ async function send ({
     }
     const result = await payment.sendChunk({ amount, headers })
 
-    if (result.retry) {
+    if (result.sent) {
+      continue
+    } else if (result.retry) {
       if (result.wait) {
         await new Promise((resolve, reject) => {
           setTimeout(() => resolve(), result.wait)
@@ -155,9 +157,7 @@ async function deliver ({
 
     if (result.sent) {
       continue
-    }
-
-    if (result.retry) {
+    } else if (result.retry) {
       if (result.wait) {
         await new Promise((resolve, reject) => {
           setTimeout(() => resolve(), result.wait)
@@ -268,26 +268,26 @@ class OutgoingPayment extends EventEmitter {
     this.transfers[transfer.id] = null
 
     try {
+      debug(`sending transfer for payment ${this.id}`, transfer)
       await this.plugin.sendTransfer(transfer)
     } catch (err) {
       debug(`error sending transfer for payment ${this.id}`, err)
       this.emit('chunk_error', err)
       throw err
     }
+    debug(`sent transfer ${transfer.id}, waiting for result`)
 
     const result = await new Promise((resolve, reject) => {
       this.once('_chunk_result_' + transfer.id, resolve)
     })
 
-    if (result.sent) {
+    if (result.sent && headers.lastChunk) {
+      debug(`sent last chunk for payment ${this.id}. amount sent: ${this.amountSent.toString(10)}, amount delivered: ${this.amountDelivered.toString(10)}, rate: ${this.getRate()}`)
+      this.end()
+    } else if (result.sent) {
       debug(`sent chunk for payment ${this.id}. amount sent: ${this.amountSent.toString(10)}, amount delivered: ${this.amountDelivered.toString(10)}, rate: ${this.getRate()}`)
     } else {
       debug(`sending chunk for payment ${this.id} failed`, result)
-    }
-
-    if (headers.lastChunk) {
-      debug(`sent last chunk for payment ${this.id}`)
-      this.end()
     }
 
     return result
@@ -306,6 +306,7 @@ class OutgoingPayment extends EventEmitter {
   }
 
   _cleanupListeners () {
+    debug('cleanup outgoing transfer event listeners')
     this.plugin.removeListener('outgoing_fulfill', this._fulfillListener)
     this.plugin.removeListener('outgoing_reject', this._rejectListener)
     this.plugin.removeListener('outgoing_cancel', this._cancelListener)
@@ -532,7 +533,6 @@ class IncomingPayment extends EventEmitter {
 
   finish () {
     debug(`payment ${this.id} finished. received: ${this.amountReceived.toString(10)}${this.amountExpected ? ' ' + this.amountExpected.toString(10) : ''}`)
-    clearTimeout(this.chunkInactivityTimer)
     this.acceptingChunks = false
     this.rejectionMessage = 'Payment already finished'
     this.emit('finish')
@@ -541,6 +541,7 @@ class IncomingPayment extends EventEmitter {
 
   end () {
     debug(`payment ${this.id} ended`)
+    clearTimeout(this.chunkInactivityTimer)
     this.acceptingChunks = false
     if (!this.rejectionMessage) {
       this.rejectionMessage = 'Payment already ended'
@@ -722,7 +723,7 @@ function listen (plugin, { receiverSecret, sharedSecret, destinationAccount, dis
 
         if (!disableRefund) {
           payment.once('chunk_timeout', () => {
-            debug(`payment ${this.id} timed out while waiting for next chunk, initiating refund`)
+            debug(`payment ${data.paymentId} timed out while waiting for next chunk, initiating refund`)
             payment.refund()
           })
         }

@@ -8,7 +8,7 @@ const base64url = require('./base64url')
 const BigNumber = require('bignumber.js')
 const Long = require('long')
 const debug = require('debug')('ilp:psk2')
-const EventEmitter = require('eventemitter2')
+const EventEmitter = require('eventemitter3')
 
 const MAX_UINT64 = '18446744073709551615'
 const NULL_CONDITION = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
@@ -282,7 +282,7 @@ class OutgoingPayment extends EventEmitter {
     })
 
     if (result.sent && headers.lastChunk) {
-      debug(`sent last chunk for payment ${this.id}. amount sent: ${this.amountSent.toString(10)}, amount delivered: ${this.amountDelivered.toString(10)}, rate: ${this.getRate()}`)
+      debug(`sent last chunk for payment ${this.id}. amount sent: ${this.amountSent.toString(10)}, amount delivered: ${this.amountDelivered.toString(10)}, rate: ${this.getRate()}, num chunks: ${this.numChunks}`)
       this.end()
     } else if (result.sent) {
       debug(`sent chunk for payment ${this.id}. amount sent: ${this.amountSent.toString(10)}, amount delivered: ${this.amountDelivered.toString(10)}, rate: ${this.getRate()}`)

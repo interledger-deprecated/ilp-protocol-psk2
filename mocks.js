@@ -1,4 +1,4 @@
-const EventEmitter = require('eventemitter2')
+const EventEmitter = require('eventemitter3')
 const IlpPacket = require('ilp-packet')
 const oer = require('oer-utils')
 const BigNumber = require('bignumber.js')

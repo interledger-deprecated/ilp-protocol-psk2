@@ -87,18 +87,27 @@ async function send ({
   })
 
   while (payment.amountSent.lessThan(sourceAmount)) {
+    const headers = {}
     const sourceAmountLeftToSend = new BigNumber(sourceAmount).minus(payment.amountSent)
-    const amount = BigNumber.min(sourceAmountLeftToSend, payment.recommendedTransferAmount)
-    const result = await payment.sendChunk({ amount })
+    if (sourceAmountLeftToSend.lessThan(payment.recommendedTransferAmount)) {
+      amount = sourceAmountLeftToSend
+      headers.lastChunk = true
+    } else {
+      amount = payment.recommendedTransferAmount
+    }
+    const result = await payment.sendChunk({ amount, headers })
 
-    if (!result.sent) {
-      if (result.retry && result.wait) {
+    if (result.retry) {
+      if (result.wait) {
         await new Promise((resolve, reject) => {
           setTimeout(() => resolve(), result.wait)
         })
       } else {
-        return payment.waitForRefund()
+        continue
       }
+    } else {
+      await payment.waitForRefund()
+      throw new Error(`Payment was not fully sent so it was refunded. Amount not refunded: ${payment.amountSent.minus(payment.amountRefunded).toString(10)}`)
     }
   }
 
@@ -127,16 +136,22 @@ async function deliver ({
   // TODO try to hit the destination amount exactly by adjusting the chunk size before the last one
   while (payment.amountDelivered.lessThan(destinationAmount)) {
     const rate = payment.getRate()
-    let amount
+    let sourceAmountLeftToSend
+    const headers = {}
     if (rate.equals(0)) {
-      amount = payment.recommendedTransferAmount
+      sourceAmountLeftToSend = payment.recommendedTransferAmount
     } else {
       const amountLeftToDeliver = new BigNumber(destinationAmount).minus(payment.amountDelivered)
-      const sourceAmountLeftToSend = BigNumber.max(amountLeftToDeliver.dividedBy(rate).round(0), 1)
-      amount = BigNumber.min(sourceAmountLeftToSend, payment.recommendedTransferAmount)
+      sourceAmountLeftToSend = BigNumber.max(amountLeftToDeliver.dividedBy(rate).round(0, BigNumber.ROUND_UP), 1)
     }
 
-    const result = await payment.sendChunk({ amount })
+    if (sourceAmountLeftToSend.lessThan(payment.recommendedTransferAmount)) {
+      amount = sourceAmountLeftToSend
+      headers.lastChunk = true
+    } else {
+      amount = payment.recommendedTransferAmount
+    }
+    const result = await payment.sendChunk({ amount, headers })
 
     if (result.sent) {
       continue
@@ -151,7 +166,8 @@ async function deliver ({
         continue
       }
     } else {
-      return payment.waitForRefund()
+      await payment.waitForRefund()
+      throw new Error(`Payment was not fully sent so it was refunded. Amount not refunded: ${payment.amountSent.minus(payment.amountRefunded).toString(10)}`)
     }
   }
 
@@ -183,12 +199,14 @@ class OutgoingPayment extends EventEmitter {
 
     // TODO add option to disable refund
     this.refundAccount = this.plugin.getAccount() + '.' + base64url(crypto.randomBytes(24))
+    this.refundStarted = false
 
     // map of transferId to boolean whether transfer succeeded or failed (null indicates unresolved)
     this.transfers = {}
     this.numChunks = 0
     this.amountSent = new BigNumber(0)
     this.amountDelivered = new BigNumber(0)
+    this.amountRefunded = new BigNumber(0)
     this.maximumTransferAmount = new BigNumber(MAX_UINT64)
     // TODO should this be configurable?
     this.recommendedTransferAmount = new BigNumber(DEFAULT_TRANSFER_START_AMOUNT)
@@ -200,7 +218,7 @@ class OutgoingPayment extends EventEmitter {
     this.plugin.on('outgoing_reject', this._rejectListener)
     this.plugin.on('outgoing_cancel', this._cancelListener)
 
-    // TODO start listening for refund
+    this._listenForRefund()
   }
 
   // TODO add method to discover path Maximum Payment Size
@@ -216,8 +234,9 @@ class OutgoingPayment extends EventEmitter {
   }
 
   async sendChunk({ amount, headers }) {
-    assert(new BigNumber(amount).greaterThanOrEqualTo(0), 'cannot send transfer of 0 or negative amount')
     // TODO what if the amount is bigger than the maximum transfer amount?
+    assert(new BigNumber(amount).greaterThanOrEqualTo(0), 'cannot send transfer of 0 or negative amount')
+    assert(!this.refundStarted, 'cannot send new chunk since refund has already started')
 
     // TODO should the headers be able to overwrite these values?
     const paymentDetails = Object.assign({}, headers, {
@@ -228,7 +247,7 @@ class OutgoingPayment extends EventEmitter {
       nonce: base64url(crypto.randomBytes(16))
     })
 
-    debug(`sending chunk for payment ${this.id} of amount: ${amount}`)
+    debug(`sending chunk for payment ${this.id} of amount: ${amount}, headers:`, headers)
 
     const packetData = Buffer.from(JSON.stringify(paymentDetails), 'utf8')
     const packet = IlpPacket.serializeIlpPayment({
@@ -263,14 +282,26 @@ class OutgoingPayment extends EventEmitter {
     if (result.sent) {
       debug(`sent chunk for payment ${this.id}. amount sent: ${this.amountSent.toString(10)}, amount delivered: ${this.amountDelivered.toString(10)}, rate: ${this.getRate()}`)
     } else {
-      debug(`sending chunk for payment ${this.id} failed`)
+      debug(`sending chunk for payment ${this.id} failed`, result)
+    }
+
+    if (headers.lastChunk) {
+      debug(`sent last chunk for payment ${this.id}`)
+      this.end()
     }
 
     return result
   }
 
   end () {
-    _cleanupListeners()
+    debug(`payment ${this.id} ended`)
+    this._cleanupListeners()
+
+    // TODO should we stop listening for the refund here?
+    if (this.stopListeningForRefund) {
+      this.stopListeningForRefund()
+    }
+
     this.emit('end')
   }
 
@@ -323,6 +354,8 @@ class OutgoingPayment extends EventEmitter {
     let retry = true
     let wait = 0
 
+    debug(`chunk for payment ${this.id} rejected with error`, ilpError)
+
     // TODO handle other types of errors (no liquidity, can't find receiver, payment already finished, etc)
     // TODO don't retry sending forever
     switch (ilpError.code) {
@@ -357,11 +390,13 @@ class OutgoingPayment extends EventEmitter {
           decreaseFactor = new BigNumber(PAYMENT_SIZE_DECREASE_FACTOR)
         }
 
+        // Adjust the recommended transfer amount downwards, as long as the transfer amount wasn't larger than recommended
         if (new BigNumber(transfer.amount).lessThanOrEqualTo(this.recommendedTransferAmount)) {
           this.recommendedTransferAmount = BigNumber.min(decreaseFactor.times(transfer.amount).truncated(), this.maximumTransferAmount)
           debug(`decreasing recommended transfer amount to ${this.recommendedTransferAmount.toString(10)}`)
         }
 
+        // Make sure the recommended transfer amount is less than the known maximum
         this.recommendedTransferAmount = BigNumber.min(this.maximumTransferAmount, this.recommendedTransferAmount)
 
         if (this.recommendedTransferAmount.lessThanOrEqualTo(1)) {
@@ -371,8 +406,8 @@ class OutgoingPayment extends EventEmitter {
         break
       case 'T04': // Insufficient Liquidity
         // TODO switch to a different path if we can
+        // TODO should this error be retried?
         debug('path has insufficient liquidity')
-
         retry = false
         break
       default:
@@ -407,6 +442,38 @@ class OutgoingPayment extends EventEmitter {
       wait: 0,
     })
   }
+
+  _listenForRefund () {
+    this.stopListeningForRefund = listen(this.plugin, {
+      sharedSecret: this.sharedSecret,
+      destinationAccount: this.refundAccount,
+      disableRefund: true
+    }, (incomingPayment) => {
+      debug(`got first chunk of refund for payment ${this.id}`)
+      this.refundStarted = true
+      this.emit('refund_start')
+      incomingPayment.on('chunk', ({ amount }) => {
+        this.amountRefunded = this.amountRefunded.plus(amount)
+      })
+      incomingPayment.accept()
+        .then((amountReceived) => {
+          this.emit('refund_finish', amountReceived)
+          this.stopListeningForRefund()
+        })
+        .catch((err) => {
+          debug(`error with refund for payment ${this.id}`, err)
+          this.emit('refund_error', err)
+          this.stopListeningForRefund()
+        })
+    })
+  }
+
+  waitForRefund () {
+    return new Promise((resolve, reject) => {
+      this.once('refund_finish', resolve)
+      this.once('refund_error', reject)
+    })
+  }
 }
 
 function generateParams ({
@@ -435,13 +502,14 @@ class IncomingPayment extends EventEmitter {
     this.chunkTimeout = chunkTimeout
 
     this.acceptingChunks = null
+    this.gotLastChunk = false
     this.amountReceived = new BigNumber(0)
-    this.finished = false
     this.rejectionMessage = null
     this.chunkInactivityTimer = null
   }
 
   accept () {
+    debug(`receiver accepted payment ${this.id}`)
     this.acceptingChunks = true
     this.emit('accept')
 
@@ -453,14 +521,18 @@ class IncomingPayment extends EventEmitter {
   }
 
   reject (rejectionMessage) {
+    debug(`receiver rejected payment ${this.id} with message: ${rejectionMessage}`)
     this.acceptingChunks = false
     this.rejectionMessage = rejectionMessage
-    this.emit('end')
+    // TODO keep the listener around for a little bit so the sender knows we rejected the payment
+    this.end()
   }
 
   // TODO add pause method?
 
   finish () {
+    debug(`payment ${this.id} finished. received: ${this.amountReceived.toString(10)}${this.amountExpected ? ' ' + this.amountExpected.toString(10) : ''}`)
+    clearTimeout(this.chunkInactivityTimer)
     this.acceptingChunks = false
     this.rejectionMessage = 'Payment already finished'
     this.emit('finish')
@@ -468,6 +540,7 @@ class IncomingPayment extends EventEmitter {
   }
 
   end () {
+    debug(`payment ${this.id} ended`)
     this.acceptingChunks = false
     if (!this.rejectionMessage) {
       this.rejectionMessage = 'Payment already ended'
@@ -476,6 +549,7 @@ class IncomingPayment extends EventEmitter {
   }
 
   async _handleIncomingTransfer (transfer, paymentData) {
+    debug(`got chunk for payment ${this.id}, transfer:`, transfer, paymentData)
     if (this.acceptingChunks === null) {
       debug(`got chunk for payment ${this.id} but the receiver hasn't accepted or rejected the payment yet`)
       this.once('accept', () => {
@@ -487,11 +561,12 @@ class IncomingPayment extends EventEmitter {
       })
       return
     } else if (this.acceptingChunks === false) {
+      debug(`got chunk for payment ${this.id} but rejecting it with the error message: ${this.rejectionReason}`)
       try {
         await this.plugin.rejectIncomingTransfer(transfer.id, IlpPacket.serializeIlpError({
           code: 'F99',
           name: 'Application Error',
-          data: this.rejectionReason,
+          data: Buffer.from(this.rejectionReason || '', 'ascii'),
           triggeredAt: new Date(),
           triggeredBy: this.plugin.getAccount(), // TODO should this be the account with receiver ID?
           forwardedBy: []
@@ -503,6 +578,7 @@ class IncomingPayment extends EventEmitter {
     }
 
     const newPaymentAmount = this.amountReceived.plus(transfer.amount)
+    debug(`fulfilling chunk for payment ${this.id} to claim ${transfer.amount}`)
     const fulfillment = cryptoHelper.packetToPreimage(transfer.ilp, this.sharedSecret)
     // TODO encrypt fulfillment data
     try {
@@ -522,13 +598,20 @@ class IncomingPayment extends EventEmitter {
     })
 
     // Check if the payment is done
-    if ((this.amountExpected && this.amountReceived.greaterThanOrEqualTo(this.amountExpected))
-     || (!this.amountExpected && paymentData.lastPayment === true)) {
+    if (this.amountExpected) {
+      if (this.amountReceived.greaterThanOrEqualTo(this.amountExpected)) {
+        this.finish()
+        return
+      }
+
+      if (paymentData.lastChunk) {
+        debug(`payment ${this.id} was ended before the expected amount was received. expected: ${this.amountExpected.toString(10)}, received: ${this.amountReceived.toString(10)}`)
+        this.emit('error', new Error('Payment was ended before we received the expected amount'))
+        this.end()
+        return
+      }
+    } else if (paymentData.lastChunk) {
       this.finish()
-      return
-    } else if (paymentData.lastPayment === true) {
-      this.emit('error', new Error('Payment was ended before we received the expected amount'))
-      this.end()
       return
     }
 
@@ -543,17 +626,22 @@ class IncomingPayment extends EventEmitter {
   }
 
   async refund () {
-    this.acceptingChunks = false
-    this.rejectionMessage = 'Refund in progress'
+    clearTimeout(this.chunkInactivityTimer)
+
+    if (this.gotLastChunk) {
+      return
+    }
 
     if (!this.sourceAccount) {
       debug(`refund for payment ${this.id} failed because it did not include a sourceAccount`)
       return
     }
 
+    debug(`sending refund for payment ${this.id}. source amount: ${this.amountReceived.toString(10)})`)
+    this.acceptingChunks = false
+    this.rejectionMessage = 'Refund in progress'
     this.emit('refund_start')
 
-    debug(`sending refund for payment ${this.id}. source amount: ${this.amountReceived.toString(10)})`)
     let result
     try {
       // TODO subtract each chunk sent from the amountReceived
@@ -575,44 +663,6 @@ class IncomingPayment extends EventEmitter {
     this.emit('error', new Error('Payment failed and was refunded'))
     this.end()
   }
-}
-
-async function listenForPayment (plugin, { sharedSecret, paymentId, timeout, destinationAccount, disableRefund }) {
-  debug(`listening for payment ${paymentId}`)
-  const paymentPromise = new Promise((resolve, reject) => {
-    const stopListening = listen(plugin, {
-      sharedSecret,
-      destinationAccount,
-      disableRefund
-    }, async (payment) => {
-      if (payment.id === paymentId) {
-        let amountReceived
-        try {
-         amountReceived = await payment.accept()
-        } catch (err) {
-          stopListening()
-          reject(err)
-          return
-        }
-        debug(`received ${amountReceived} for payment ${paymentId}`)
-        stopListening()
-        resolve(amountReceived)
-      }
-    })
-  })
-
-  // TODO what if we've already gotten some of the money but not all?
-  let timer
-  const timeoutPromise = new Promise((resolve, reject) => {
-    timer = setTimeout(() => {
-      debug(`timed out waiting for payment ${paymentId}`)
-      reject(new Error('timed out waiting for payment ' + paymentId))
-    }, (timeout || DEFAULT_PAYMENT_TIMEOUT) * 1000)
-  })
-
-  const result = await Promise.race([paymentPromise, timeoutPromise])
-  clearTimeout(timer)
-  return result
 }
 
 // TODO add option to allow partial payments
@@ -671,7 +721,10 @@ function listen (plugin, { receiverSecret, sharedSecret, destinationAccount, dis
         payments[data.paymentId] = payment
 
         if (!disableRefund) {
-          payment.once('chunk_timeout', () => payment.refund())
+          payment.once('chunk_timeout', () => {
+            debug(`payment ${this.id} timed out while waiting for next chunk, initiating refund`)
+            payment.refund()
+          })
         }
 
         handler(payment)

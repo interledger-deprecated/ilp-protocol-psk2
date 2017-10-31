@@ -247,8 +247,6 @@ class OutgoingPayment extends EventEmitter {
       nonce: base64url(crypto.randomBytes(16))
     })
 
-    debug(`sending chunk for payment ${this.id} of amount: ${amount}, headers:`, headers)
-
     const packetData = Buffer.from(JSON.stringify(paymentDetails), 'utf8')
     const packet = IlpPacket.serializeIlpPayment({
       account: this.destinationAccount,
@@ -275,7 +273,6 @@ class OutgoingPayment extends EventEmitter {
       this.emit('chunk_error', err)
       throw err
     }
-    debug(`sent transfer ${transfer.id}, waiting for result`)
 
     const result = await new Promise((resolve, reject) => {
       this.once('_chunk_result_' + transfer.id, resolve)
@@ -294,7 +291,6 @@ class OutgoingPayment extends EventEmitter {
   }
 
   end () {
-    debug(`payment ${this.id} ended`)
     this._cleanupListeners()
 
     // TODO should we stop listening for the refund here?
@@ -540,7 +536,6 @@ class IncomingPayment extends EventEmitter {
   }
 
   end () {
-    debug(`payment ${this.id} ended`)
     clearTimeout(this.chunkInactivityTimer)
     this.acceptingChunks = false
     if (!this.rejectionMessage) {
@@ -579,7 +574,6 @@ class IncomingPayment extends EventEmitter {
     }
 
     const newPaymentAmount = this.amountReceived.plus(transfer.amount)
-    debug(`fulfilling chunk for payment ${this.id} to claim ${transfer.amount}`)
     const fulfillment = cryptoHelper.packetToPreimage(transfer.ilp, this.sharedSecret)
     // TODO encrypt fulfillment data
     try {
@@ -647,6 +641,7 @@ class IncomingPayment extends EventEmitter {
     try {
       // TODO subtract each chunk sent from the amountReceived
       result = await send({
+        // TODO add header to disable refund
         plugin: this.plugin,
         destinationAccount: this.sourceAccount,
         sourceAmount: this.amountReceived,
@@ -655,6 +650,7 @@ class IncomingPayment extends EventEmitter {
       })
       debug(`sent refund for payment ${this.id}. result:`, result)
     } catch (err) {
+      debug(`error refunding payment ${this.id}`, err)
       this.emit('refund_error', err)
       this.emit('error', new Error('Payment and refund both failed'))
       this.end()
@@ -671,25 +667,30 @@ function listen (plugin, { receiverSecret, sharedSecret, destinationAccount, dis
   const payments = {}
 
   async function listener (transfer) {
-    debug('got incoming transfer', transfer)
+    debug('listener got incoming transfer', transfer)
     const packet = IlpPacket.deserializeIlpPayment(Buffer.from(transfer.ilp, 'base64'))
 
     if (destinationAccount && packet.account !== destinationAccount) {
-      debug(`transfer does not concern us. destination account: ${packet.account}, our account: ${destinationAccount}`)
+      debug(`ignoring incoming transfer ${tranasfer.id} because the account in the packet (${packet.account}) is not the one we are listening for ${destinationAccount})`)
+      return
+    }
+
+    try {
+      sharedSecret = (sharedSecret && Buffer.from(sharedSecret, 'base64')) ||
+        _accountToSharedSecret({
+          account: packet.account,
+          pluginAccount: plugin.getAccount(),
+          receiverSecret
+        })
+    } catch (err) {
+      debug(`error deriving shared secret from account`, err)
+    }
+    if (!sharedSecret) {
+      debug(`ignoring incoming transfer ${transfer.id} because we could not redervie the shared secret and one was not supplied`)
       return
     }
 
     const data = JSON.parse(Buffer.from(packet.data, 'base64').toString('utf8'))
-    debug('parsed data', data)
-
-    // TODO handle if we can't regenerate the shared secret (means the payment isn't for us)
-    sharedSecret = (sharedSecret && Buffer.from(sharedSecret, 'base64')) ||
-      _accountToSharedSecret({
-        account: packet.account,
-        pluginAccount: plugin.getAccount(),
-        receiverSecret
-      })
-
     // TODO the fact that it's a quote should probably be communicated in headers
     if (data.method === 'quote') {
       debug('got incoming quote request')
@@ -708,7 +709,6 @@ function listen (plugin, { receiverSecret, sharedSecret, destinationAccount, dis
       }
       return
     } else if (data.method === 'pay') {
-      debug('got incoming payment chunk')
       let payment = payments[data.paymentId]
       if (!payment) {
         payment = new IncomingPayment({

@@ -28,7 +28,10 @@ This is a prototype of a V2 for the ILP Pre-Shared Key Transport Protocol.
 - [x] Sender listens for refund payment
 - [x] Timeout before refund issued adjusts based on expected payment time
 - [x] Sender accepts partial refunds but knows exactly how much they lost on chunked payment that fails
-- [ ] Handle other final errors
+- [x] Handle other final errors
+- [ ] Track amount refunded on incoming and outgoing payments
+- [ ] Try to hit destination amount exactly when delivering
+- [ ] Handle fluctuating exchange rate
 - [ ] Workarounds if connectors don't support fulfillment data (as discussed in [RFCs issue #314](https://github.com/interledger/rfcs/issues/314))
 - [ ] Sending payment chunks through multiple connectors
 - [ ] Multiple payments in flight (if that's useful)

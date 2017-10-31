@@ -100,13 +100,9 @@ async function send ({
     if (result.sent) {
       continue
     } else if (result.retry) {
-      if (result.wait) {
-        await new Promise((resolve, reject) => {
-          setTimeout(() => resolve(), result.wait)
-        })
-      } else {
-        continue
-      }
+      await new Promise((resolve, reject) => {
+        setTimeout(() => resolve(), result.wait)
+      })
     } else {
       await payment.waitForRefund()
       throw new Error(`Payment was not fully sent so it was refunded. Amount not refunded: ${payment.amountSent.minus(payment.amountRefunded).toString(10)}`)
@@ -158,13 +154,9 @@ async function deliver ({
     if (result.sent) {
       continue
     } else if (result.retry) {
-      if (result.wait) {
-        await new Promise((resolve, reject) => {
-          setTimeout(() => resolve(), result.wait)
-        })
-      } else {
-        continue
-      }
+      await new Promise((resolve, reject) => {
+        setTimeout(() => resolve(), result.wait)
+      })
     } else {
       await payment.waitForRefund()
       throw new Error(`Payment was not fully sent so it was refunded. Amount not refunded: ${payment.amountSent.minus(payment.amountRefunded).toString(10)}`)
@@ -275,10 +267,17 @@ class OutgoingPayment extends EventEmitter {
     }
 
     const result = await new Promise((resolve, reject) => {
-      this.once('_chunk_result_' + transfer.id, resolve)
+      this.once('_chunk_result_' + transfer.id, (result) => {
+        if (result.error) {
+          reject(result.error)
+        } else {
+          resolve(result)
+        }
+      })
     })
-
-    if (result.sent && headers.lastChunk) {
+    if (result.error) {
+      throw result.error
+    } else if (result.sent && headers.lastChunk) {
       debug(`sent last chunk for payment ${this.id}. amount sent: ${this.amountSent.toString(10)}, amount delivered: ${this.amountDelivered.toString(10)}, rate: ${this.getRate()}, num chunks: ${this.numChunks}`)
       this.end()
     } else if (result.sent) {
@@ -291,10 +290,11 @@ class OutgoingPayment extends EventEmitter {
   }
 
   end () {
+    debug(`payment ${this.id} ended`)
     this._cleanupListeners()
 
     // TODO should we stop listening for the refund here?
-    if (this.stopListeningForRefund) {
+    if (typeof this.stopListeningForRefund === 'function') {
       this.stopListeningForRefund()
     }
 
@@ -302,7 +302,6 @@ class OutgoingPayment extends EventEmitter {
   }
 
   _cleanupListeners () {
-    debug('cleanup outgoing transfer event listeners')
     this.plugin.removeListener('outgoing_fulfill', this._fulfillListener)
     this.plugin.removeListener('outgoing_reject', this._rejectListener)
     this.plugin.removeListener('outgoing_cancel', this._cancelListener)
@@ -348,78 +347,103 @@ class OutgoingPayment extends EventEmitter {
     }
 
     const sent = false
+    // TODO don't retry sending forever
     let retry = true
     let wait = 0
+    let error = null
 
     debug(`chunk for payment ${this.id} rejected with error`, ilpError)
 
-    // TODO handle other types of errors (no liquidity, can't find receiver, payment already finished, etc)
-    // TODO don't retry sending forever
-    switch (ilpError.code) {
-      case 'F08': // Payment Too Large
-        let decreaseFactor
-        try {
-          const dataReader = oer.Reader.from(Buffer.from(ilpError.data, 'ascii'))
-          const amountArrived = Long.fromBits.apply(null, dataReader.readUInt64().concat([true])).toString()
-          const amountLimit = Long.fromBits.apply(null, dataReader.readUInt64().concat([true])).toString()
-          decreaseFactor = new BigNumber(amountLimit).dividedBy(amountArrived)
+    // Handle different error cases, either by telling the user to retry (possibly
+    // with a delay) or not. Return an error for cases that are final or we don't
+    // know how to handle
+    if (ilpError.code.toUpperCase() === 'F08') {
+      // Payment Too large
+      // Error data should include how much arrived at the party that threw the error
+      // and what their limit is, so we can determine how much smaller to make our payment
+      let decreaseFactor
+      try {
+        const dataReader = oer.Reader.from(Buffer.from(ilpError.data, 'ascii'))
+        const amountArrived = Long.fromBits.apply(null, dataReader.readUInt64().concat([true])).toString()
+        const amountLimit = Long.fromBits.apply(null, dataReader.readUInt64().concat([true])).toString()
+        decreaseFactor = new BigNumber(amountLimit).dividedBy(amountArrived)
 
-          // the true path MPS might be lower than this but it definitely won't be higher
-          // so this might get adjusted down more if we get more payment errors
-          this.maximumTransferAmount = BigNumber.min(
-            this.maximumTransferAmount,
-            new BigNumber(transfer.amount).times(decreaseFactor).truncated(),
-            new BigNumber(transfer.amount).minus(1).truncated())
-          debug(`chunk for payment ${this.id} got F08 Payment Too Large error. Path Maximum Payment Size is less than or equal to ${this.maximumTransferAmount.toString(10)}`)
-        } catch (err) {
-          debug(`chunk for payment ${this.id} rejected with F08 Payment Too Large Error but it did not include the additional data to determine how much we should reduce the payment by:`, ilpError.data)
+        // the true path MPS might be lower than this but it definitely won't be higher
+        // so this might get adjusted down more if we get more payment errors
+        this.maximumTransferAmount = BigNumber.min(
+          this.maximumTransferAmount,
+          new BigNumber(transfer.amount).times(decreaseFactor).truncated(),
+          new BigNumber(transfer.amount).minus(1).truncated())
+        debug(`chunk for payment ${this.id} got F08 Payment Too Large error. Path Maximum Payment Size is less than or equal to ${this.maximumTransferAmount.toString(10)}`)
+      } catch (err) {
+        debug(`chunk for payment ${this.id} rejected with F08 Payment Too Large Error but it did not include the additional data to determine how much we should reduce the payment by:`, ilpError.data)
 
-          // We don't know exactly what the MPS is but we know it's definitely smaller than this transfer amount
-          this.maximumTransferAmount = BigNumber.min(this.maximumTransferAmount, transfer.amount)
-        }
+        // We don't know exactly what the MPS is but we know it's definitely smaller than this transfer amount
+        this.maximumTransferAmount = BigNumber.min(this.maximumTransferAmount, transfer.amount)
+      }
 
-        if (this.maximumTransferAmount.lessThanOrEqualTo(1)) {
-          this.maximumTransferAmount = new BigNumber(1)
-        }
+      if (this.maximumTransferAmount.lessThanOrEqualTo(1)) {
+        this.maximumTransferAmount = new BigNumber(1)
+      }
 
-        if (!decreaseFactor || decreaseFactor.greaterThanOrEqualTo(1)) {
-          // something is wrong with the error values we got, use the default
-          decreaseFactor = new BigNumber(PAYMENT_SIZE_DECREASE_FACTOR)
-        }
+      if (!decreaseFactor || decreaseFactor.greaterThanOrEqualTo(1)) {
+        // something is wrong with the error values we got, use the default
+        decreaseFactor = new BigNumber(PAYMENT_SIZE_DECREASE_FACTOR)
+      }
 
-        // Adjust the recommended transfer amount downwards, as long as the transfer amount wasn't larger than recommended
-        if (new BigNumber(transfer.amount).lessThanOrEqualTo(this.recommendedTransferAmount)) {
-          this.recommendedTransferAmount = BigNumber.min(decreaseFactor.times(transfer.amount).truncated(), this.maximumTransferAmount)
-          debug(`decreasing recommended transfer amount to ${this.recommendedTransferAmount.toString(10)}`)
-        }
+      // Adjust the recommended transfer amount downwards, as long as the transfer amount wasn't larger than recommended
+      if (new BigNumber(transfer.amount).lessThanOrEqualTo(this.recommendedTransferAmount)) {
+        this.recommendedTransferAmount = BigNumber.min(decreaseFactor.times(transfer.amount).truncated(), this.maximumTransferAmount)
+        debug(`decreasing recommended transfer amount to ${this.recommendedTransferAmount.toString(10)}`)
+      }
 
-        // Make sure the recommended transfer amount is less than the known maximum
-        this.recommendedTransferAmount = BigNumber.min(this.maximumTransferAmount, this.recommendedTransferAmount)
+      // Make sure the recommended transfer amount is less than the known maximum
+      this.recommendedTransferAmount = BigNumber.min(this.maximumTransferAmount, this.recommendedTransferAmount)
 
-        if (this.recommendedTransferAmount.lessThanOrEqualTo(1)) {
-          this.recommendedTransferAmount = new BigNumber(1)
-        }
+      if (this.recommendedTransferAmount.lessThanOrEqualTo(1)) {
+        this.recommendedTransferAmount = new BigNumber(1)
+      }
+    } else if (ilpError.code.toUpperCase() === 'T04') {
+      // Insufficient Liquidity
+      // TODO switch to a different path if we can
+      // TODO should this error be retried?
+      debug('path has insufficient liquidity')
+      retry = false
+    } else if (ilpError.code.toUpperCase() === 'R00' || ilpError.code.toUpperCase() === 'R02') {
+      // Transfer Timed Out or Insufficient Timeout
+      // TODO increase transfer timeout?
+      retry = false
+    } else if (ilpError.code.toUpperCase() === 'R01') {
+      // Insufficient Source Amount
 
-        break
-      case 'T04': // Insufficient Liquidity
-        // TODO switch to a different path if we can
-        // TODO should this error be retried?
-        debug('path has insufficient liquidity')
+      // Increase the transfer amount unless it would put us over the path's Maximum Payment Size
+      const increasedAmount = this.recommendedTransferAmount.times(PAYMENT_SIZE_INCREASE_FACTOR)
+      if (increasedAmount.lessThan(this.maximumTransferAmount)) {
+        this.recommendedTransferAmount = increasedAmount
+      } else {
         retry = false
-        break
-      default:
-        // TODO is this the right default behavior? should we keep trying?
-        // TODO count the number of errors we've gotten and stop at some point
-        debug('decreasing transfer amount by default factor')
-        this.recommendedTransferAmount = BigNumber.max(transferAmount.times(PAYMENT_SIZE_DECREASE_FACTOR).truncated(), 1)
-        break
+        const errorMessage = `got R01 Insufficient Source Amount error but a higher transfer amount would exceed the path's Maximum Payment Size ${this.maximumTransferAmount.toString(10)}`
+        debug(errorMessage)
+        error = new Error(errorMessage)
+      }
+    } else if (ilpError.code.toUpperCase()[0] === 'T') {
+      // Other Temporary Errors
+      // TODO add exponential backoff
+      wait = 100
+    } else if (ilpError.code.toUpperCase()[0] === 'F' || ilpError.code.toUpperCase()[0] === 'R') {
+      // Other Final or Relative Errors
+      retry = false
+      error = new Error(`${ilpError.code} ${ilpError.name}: ${ilpError.data}`)
+    } else {
+      debug('unknown error', ilpError)
     }
 
     this.emit('chunk_reject', transfer, ilpError)
     this.emit('_chunk_result_' + transfer.id, {
       sent,
       retry,
-      wait
+      wait,
+      error
     })
   }
 
@@ -436,7 +460,7 @@ class OutgoingPayment extends EventEmitter {
     this.emit('_chunk_result_' + transfer.id, {
       sent: false,
       retry: true,
-      wait: 0,
+      wait: 100,
     })
   }
 
@@ -455,18 +479,22 @@ class OutgoingPayment extends EventEmitter {
       incomingPayment.accept()
         .then((amountReceived) => {
           this.emit('refund_finish', amountReceived)
-          this.stopListeningForRefund()
+          this.end()
         })
         .catch((err) => {
           debug(`error with refund for payment ${this.id}`, err)
           this.emit('refund_error', err)
-          this.stopListeningForRefund()
+          this.end()
         })
     })
   }
 
-  waitForRefund () {
-    return new Promise((resolve, reject) => {
+  async waitForRefund () {
+    if (this.amountSent.equals(0)) {
+      return
+    }
+
+    await new Promise((resolve, reject) => {
       this.once('refund_finish', resolve)
       this.once('refund_error', reject)
     })

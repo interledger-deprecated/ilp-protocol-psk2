@@ -95,6 +95,7 @@ async function send ({
     } else {
       amount = payment.recommendedTransferAmount
     }
+    // TODO handle errors - should we wait for the refund before returning the error message?
     const result = await payment.sendChunk({ amount, headers })
 
     if (result.sent) {
@@ -149,6 +150,7 @@ async function deliver ({
     } else {
       amount = payment.recommendedTransferAmount
     }
+    // TODO handle errors - should we wait for the refund before returning the error message?
     const result = await payment.sendChunk({ amount, headers })
 
     if (result.sent) {
@@ -291,20 +293,16 @@ class OutgoingPayment extends EventEmitter {
 
   end () {
     debug(`payment ${this.id} ended`)
-    this._cleanupListeners()
 
-    // TODO should we stop listening for the refund here?
+    this.plugin.removeListener('outgoing_fulfill', this._fulfillListener)
+    this.plugin.removeListener('outgoing_reject', this._rejectListener)
+    this.plugin.removeListener('outgoing_cancel', this._cancelListener)
+
     if (typeof this.stopListeningForRefund === 'function') {
       this.stopListeningForRefund()
     }
 
     this.emit('end')
-  }
-
-  _cleanupListeners () {
-    this.plugin.removeListener('outgoing_fulfill', this._fulfillListener)
-    this.plugin.removeListener('outgoing_reject', this._rejectListener)
-    this.plugin.removeListener('outgoing_cancel', this._cancelListener)
   }
 
   _handleFulfill (transfer, fulfillment, ilp) {

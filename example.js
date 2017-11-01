@@ -73,13 +73,13 @@ async function main () {
   })
   console.log('sent payment with fixed destination amount:', destinationResult)
 
-  //const sourceResult = await psk2.send({
-  //plugin: pluginA1,
-  //destinationAccount,
-  //sourceAmount: '10000',
-  //sharedSecret
-  //})
-  //console.log('sent payment with fixed source amount:', sourceResult)
+  const sourceResult = await psk2.send({
+    plugin: pluginA1,
+    destinationAccount,
+    sourceAmount: '10000',
+    sharedSecret
+  })
+  console.log('sent payment with fixed source amount:', sourceResult)
   process.exit(0)
 }
 main().catch(err => console.log(err.stack))

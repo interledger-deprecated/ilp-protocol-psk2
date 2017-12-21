@@ -38,6 +38,10 @@ async function main () {
 
   const stopListening = PSK2.listen(receiver, {
     receiverSecret
+  }, async ({ paymentId, expectedAmount, accept, reject }) => {
+    console.log(`receiver accepting payment: ${paymentId} with expected amount: ${expectedAmount}`)
+    const result = await accept()
+    console.log('receiver got payment', result)
   })
 
   const quote = await PSK2.quote(sender, {

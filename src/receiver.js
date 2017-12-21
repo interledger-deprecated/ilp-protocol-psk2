@@ -20,12 +20,15 @@ function listen (plugin, {
   receiverSecret,
   notifyEveryChunk,
   acceptableOverpaymentMultiple = 1.01
-}) {
+}, callback) {
   assert(receiverSecret, 'receiverSecret is required')
   assert(Buffer.from(receiverSecret, 'base64').length >= 32, 'receiverSecret must be at least 32 bytes')
+  assert(typeof callback === 'function', 'review callback must be a function')
+
   plugin = convertToV2Plugin(plugin)
 
   const receiverId = getReceiverId(receiverSecret)
+  // TODO replace plugin.getAccount() with Interledger "DHCP" call
   const account = plugin.getAccount()
 
   const payments = {}
@@ -86,7 +89,11 @@ function listen (plugin, {
         // TODO buffer user data and keep track of sequence numbers
         received: new BigNumber(0),
         expected: new BigNumber(0),
-        finished: false
+        finished: false,
+        finishedPromise: null,
+        acceptedByReceiver: null,
+        chunksFulfilled: 0,
+        chunksRejected: 0 // doesn't include chunks we cannot parse
       }
       payments[paymentId] = record
     }
@@ -94,6 +101,7 @@ function listen (plugin, {
 
     function rejectTransfer (message) {
       debug(`rejecting transfer ${request.sequence} of payment ${paymentId}: ${message}`)
+      record.chunksRejected += 1
       err = new Error(message)
       err.name = 'InterledgerRejectionError'
       const data = serializePskPacket({
@@ -128,6 +136,38 @@ function listen (plugin, {
       return rejectTransfer(`incoming transfer would put the payment too far over the expected amount. already received: ${record.received.toString(10)}, expected: ${record.expected.toString(10)}, transfer amount: ${transfer.amount}`)
     }
 
+    // Check if the receiver wants to accept the payment
+    if (record.acceptedByReceiver === null) {
+      try {
+        await new Promise((resolve, reject) => {
+          callback({
+            paymentId,
+            expectedAmount: record.expected.toString(10),
+            accept: async () => {
+              await resolve()
+              // The promise returned to the receiver will be fulfilled
+              // when the whole payment is finished
+              return new Promise((resolve, reject) => {
+                record.finishedPromise = { resolve, reject }
+                // TODO should the payment timeout after some time?
+              })
+            },
+            reject: reject
+            // TODO include first chunk data
+          })
+        })
+      } catch (err) {
+        record.acceptedByReceiver = false
+        record.rejectionMessage = err && err.message
+      }
+    }
+
+    // Reject the chunk if the receiver didn't want the payment
+    if (record.acceptedByReceiver === false) {
+      record.chunksRejected += 1
+      throwError('F99', 'rejected by receiver' + (record.rejectionMessage ? ': ' + record.rejectionMessage : ''))
+    }
+
     // Check if we can regenerate the correct fulfillment
     let fulfillment
     try {
@@ -136,6 +176,7 @@ function listen (plugin, {
       assert(generatedCondition.equals(transfer.executionCondition), `condition generated does not match. expected: ${transfer.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
     } catch (err) {
       debug('error regenerating fulfillment:', err)
+      record.chunksRejected += 1
       throwError('F05', 'condition generated does not match')
     }
 
@@ -143,6 +184,14 @@ function listen (plugin, {
     record.received = record.received.plus(transfer.amount)
     if (record.received.gte(record.expected) || request.type === constants.TYPE_LAST_CHUNK) {
       record.finished = true
+      record.finishedPromise.resolve({
+        paymentId,
+        receivedAmount: record.received.toString(10),
+        expectedAmount: record.expected.toString(10),
+        chunksFulfilled: record.chunksFulfilled
+        // TODO add data
+        // TODO report rejected chunks?
+      })
     }
 
     const response = serializePskPacket({
@@ -157,6 +206,7 @@ function listen (plugin, {
     debug(`got ${record.finished ? 'last ' : ''}chunk of amount ${transfer.amount} for payment: ${paymentId}. total received: ${record.received.toString(10)}`)
 
     debug(`fulfilling transfer ${request.sequence} for payment ${paymentId} with fulfillment: ${fulfillment.toString('base64')}`)
+    record.chunksFulfilled += 1
 
     return {
       fulfillment,

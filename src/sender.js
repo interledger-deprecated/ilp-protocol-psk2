@@ -19,7 +19,7 @@ async function quote (plugin, {
   sourceAmount,
   destinationAmount,
   sharedSecret,
-  destination
+  destinationAccount
 }) {
   plugin = convertToV2Plugin(plugin)
   const debug = Debug('ilp-psk2:quote')
@@ -38,7 +38,7 @@ async function quote (plugin, {
     chunkAmount: constants.MAX_UINT64,
   })
   const ilp = IlpPacket.serializeIlpForwardedPayment({
-    account: destination,
+    account: destinationAccount,
     data
   })
 
@@ -57,8 +57,6 @@ async function quote (plugin, {
       throw err
     }
 
-    debug(`got quote response:`, err.ilpRejection)
-
     let amountArrived
     try {
       const rejection = IlpPacket.deserializeIlpRejection(err.ilpRejection)
@@ -70,7 +68,7 @@ async function quote (plugin, {
 
       amountArrived = quoteResponse.chunkAmount
     } catch (decryptionErr) {
-      debug('error parsing encrypted quote response', decryptionErr)
+      debug('error parsing encrypted quote response', decryptionErr, err.ilpRejection.toString('base64'))
       throw err
     }
 
@@ -94,30 +92,30 @@ async function quote (plugin, {
 async function send (plugin, {
   sourceAmount,
   sharedSecret,
-  destination
+  destinationAccount
 }) {
   assert(sharedSecret, 'sharedSecret is required')
   assert(Buffer.from(sharedSecret, 'base64').length >= 32, 'sharedSecret must be at least 32 bytes')
   assert(sourceAmount, 'sourceAmount is required')
-  return sendChunkedPayment(plugin, { sourceAmount, sharedSecret, destination })
+  return sendChunkedPayment(plugin, { sourceAmount, sharedSecret, destinationAccount })
 }
 
 async function deliver (plugin, {
   destinationAmount,
   sharedSecret,
-  destination,
+  destinationAccount,
 }) {
   assert(sharedSecret, 'sharedSecret is required')
   assert(Buffer.from(sharedSecret, 'base64').length >= 32, 'sharedSecret must be at least 32 bytes')
   assert(destinationAmount, 'destinationAmount is required')
-  return sendChunkedPayment(plugin, { destinationAmount, sharedSecret, destination })
+  return sendChunkedPayment(plugin, { destinationAmount, sharedSecret, destinationAccount })
 }
 
 // TODO add option not to chunk the payment
 // TODO accept user data also
 async function sendChunkedPayment (plugin, {
   sharedSecret,
-  destination,
+  destinationAccount,
   sourceAmount,
   destinationAmount,
 }) {
@@ -207,7 +205,7 @@ async function sendChunkedPayment (plugin, {
       chunkAmount: minimumAmountReceiverShouldAccept
     })
     const ilp = IlpPacket.serializeIlpForwardedPayment({
-      account: destination,
+      account: destinationAccount,
       data
     })
 

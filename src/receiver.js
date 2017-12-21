@@ -1,6 +1,7 @@
 'use strict'
 
 const assert = require('assert')
+const crypto = require('crypto')
 const debug = require('debug')('ilp-psk2:receiver')
 const BigNumber = require('bignumber.js')
 const convertToV2Plugin = require('ilp-compat-plugin')
@@ -9,55 +10,73 @@ const constants = require('./constants')
 const { serializePskPacket, deserializePskPacket } = require('./encoding')
 const { dataToFulfillment, fulfillmentToCondition } = require('./condition')
 
+const RECEIVER_ID_STRING = 'ilp_psk2_receiver_id'
+const PSK_GENERATION_STRING = 'ilp_psk2_generation'
+const RECEIVER_ID_LENGTH = 8
+const TOKEN_LENGTH = 18
+const SHARED_SECRET_LENGTH = 32
+
 function listen (plugin, {
-  secret,
+  receiverSecret,
   notifyEveryChunk,
   acceptableOverpaymentMultiple = 1.01
 }) {
-  assert(secret, 'secret is required')
-  assert(Buffer.from(secret, 'base64').length >= 32, 'secret must be at least 32 bytes')
+  assert(receiverSecret, 'receiverSecret is required')
+  assert(Buffer.from(receiverSecret, 'base64').length >= 32, 'receiverSecret must be at least 32 bytes')
   plugin = convertToV2Plugin(plugin)
+
+  const receiverId = getReceiverId(receiverSecret)
+  const account = plugin.getAccount()
 
   const payments = {}
 
   plugin.registerTransferHandler(handlePrepare)
 
+  function throwError (code, message, data) {
+    debug('rejecting transfer:', code, message)
+    const err = new Error(message)
+    err.name = 'InterledgerRejectionError'
+    err.ilpRejection = IlpPacket.serializeIlpRejection({
+      code,
+      message,
+      data: data || Buffer.alloc(0),
+      triggeredBy: account
+    })
+    throw err
+  }
+
   async function handlePrepare (transfer) {
-    // TODO check that destination matches our address
-
-    // TODO use a different shared secret for each sender
-    const sharedSecret = secret
-
     let packet
-    let request
+    let sharedSecret
     let err
     try {
       packet = IlpPacket.deserializeIlpForwardedPayment(transfer.ilp)
-      request = deserializePskPacket(secret, packet.data)
+      const parsedAccount = parseAccount(packet.account)
+
+      //assert(parsedAccount.destinationAccount === account, 'payment is for a different destination account')
+      assert(parsedAccount.receiverId === receiverId, 'payment is for a different receiver')
+
+      sharedSecret = generateSharedSecret(receiverSecret, parsedAccount.token)
+    } catch (err) {
+      // If this transfer isn't for us, we'll wait until right before the expiry and then reject it
+      // in case there is another listener that is expecting it
+      const timeout = Date.parse(transfer.expiresAt) - Date.now() - 100
+      debug(`transfer is not for us, waiting ${timeout}ms to reject it:`, err.message)
+      await new Promise((resolve, reject) => setTimeout(resolve, timeout))
+      throwError('F05', 'unable to decrypt data')
+    }
+
+    let request
+    try {
+      request = deserializePskPacket(sharedSecret, packet.data)
     } catch (err) {
       debug('error decrypting data:', err)
-      err = new Error('unable to decrypt data')
-      err.name = 'InterledgerRejectionError'
-      err.ilp = IlpPacket.serializeIlpRejection({
-        code: 'F01',
-        message: 'unable to decrypt data',
-        data: Buffer.alloc(0),
-        triggeredBy: ''
-      })
-      throw err
+      throwError('F06', 'unable to decrypt data')
     }
 
     if (request.type !== constants.TYPE_CHUNK && request.type !== constants.TYPE_LAST_CHUNK) {
       debug(`got unexpected request type: ${request.type}`)
-      err = new Error(`unexpected request type: ${request.type}`)
-      err.name = 'InterledgerRejectionError'
-      err.ilpRejection = IlpPacket.serializeIlpRejection({
-        code: 'F06',
-        message: 'wrong type',
-        data: Buffer.alloc(0),
-        triggeredBy: ''
-      })
-      throw err
+      throwError('F06', 'unexpected request type')
     }
 
     const paymentId = request.paymentId.toString('hex')
@@ -74,7 +93,7 @@ function listen (plugin, {
     record.expected = request.paymentAmount
 
     function rejectTransfer (message) {
-      debug(`rejecting transfer ${transfer.id} (part of payment: ${paymentId}): ${message}`)
+      debug(`rejecting transfer ${request.sequence} of payment ${paymentId}: ${message}`)
       err = new Error(message)
       err.name = 'InterledgerRejectionError'
       const data = serializePskPacket({
@@ -87,7 +106,7 @@ function listen (plugin, {
       })
       err.ilpRejection = IlpPacket.serializeIlpRejection({
         code: 'F99',
-        triggeredBy: '',
+        triggeredBy: plugin.getAccount(),
         message: '',
         data
       })
@@ -112,19 +131,12 @@ function listen (plugin, {
     // Check if we can regenerate the correct fulfillment
     let fulfillment
     try {
-      fulfillment = dataToFulfillment(secret, packet.data)
+      fulfillment = dataToFulfillment(sharedSecret, packet.data)
       const generatedCondition = fulfillmentToCondition(fulfillment)
-      assert(generatedCondition.equals(transfer.executionCondition), 'condition generated does not match')
+      assert(generatedCondition.equals(transfer.executionCondition), `condition generated does not match. expected: ${transfer.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
     } catch (err) {
-      err = new Error('wrong condition')
-      err.name = 'InterledgerRejectionError'
-      err.ilpRejection = IlpPacket.serializeIlpRejection({
-        code: 'F05',
-        message: err.message,
-        data: Buffer.alloc(0),
-        triggeredBy: ''
-      })
-      throw err
+      debug('error regenerating fulfillment:', err)
+      throwError('F05', 'condition generated does not match')
     }
 
     // Update stats based on that chunk
@@ -134,7 +146,7 @@ function listen (plugin, {
     }
 
     const response = serializePskPacket({
-      sharedSecret: secret,
+      sharedSecret,
       type: constants.TYPE_FULFILLMENT,
       paymentId: request.paymentId,
       sequence: request.sequence,
@@ -144,13 +156,71 @@ function listen (plugin, {
 
     debug(`got ${record.finished ? 'last ' : ''}chunk of amount ${transfer.amount} for payment: ${paymentId}. total received: ${record.received.toString(10)}`)
 
-    debug(`fulfilling transfer: ${fulfillment.toString('base64')}`)
+    debug(`fulfilling transfer ${request.sequence} for payment ${paymentId} with fulfillment: ${fulfillment.toString('base64')}`)
 
     return {
       fulfillment,
       ilp: response
     }
   }
+
+  return () => {
+    plugin.deregisterTransferHandler()
+  }
+}
+
+function generateParams ({
+  destinationAccount,
+  receiverSecret
+}) {
+  assert(typeof destinationAccount === 'string', 'destinationAccount must be a string')
+  assert(Buffer.isBuffer(receiverSecret), 'receiverSecret must be a buffer')
+
+  const token = base64url(crypto.randomBytes(TOKEN_LENGTH))
+  const receiverId = getReceiverId(receiverSecret)
+  const sharedSecret = generateSharedSecret(receiverSecret, token)
+
+  return {
+    sharedSecret,
+    destinationAccount: `${destinationAccount}.${receiverId}.${token}`
+  }
+}
+
+function parseAccount (destinationAccount) {
+  const split = destinationAccount.split('.')
+  assert(split.length >= 2, 'account must have receiverId and token components')
+  const receiverId = split[split.length - 2]
+  const token = split[split.length - 1]
+  return {
+    destinationAccount: split.slice(0, split.length - 2).join('.'),
+    receiverId,
+    token
+  }
+}
+
+function getReceiverId (receiverSecret) {
+  const buf = hmac(receiverSecret, RECEIVER_ID_STRING).slice(0, RECEIVER_ID_LENGTH)
+  return base64url(buf)
+}
+
+function generateSharedSecret (secret, token) {
+  const sharedSecretGenerator = hmac(secret, PSK_GENERATION_STRING)
+  return hmac(sharedSecretGenerator, token).slice(0, SHARED_SECRET_LENGTH)
+}
+
+function hmac (key, message) {
+  const h = crypto.createHmac('sha256', Buffer.from(key, 'base64'))
+  h.update(Buffer.from(message, 'utf8'))
+  return h.digest()
+}
+
+function base64url (buf) {
+  return Buffer.from(buf, 'base64')
+    .toString('base64')
+    .replace(/=+$/, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
 }
 
 exports.listen = listen
+exports.generateParams = generateParams

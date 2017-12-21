@@ -16,7 +16,7 @@ function base64url (buf) {
     .replace(/\//g, '_')
 }
 
-const sharedSecret = crypto.randomBytes(32)
+const receiverSecret = crypto.randomBytes(32)
 const sender = new PluginVirtual({
   server: 'btp+ws://:sender@localhost:3002',
 })
@@ -31,30 +31,37 @@ async function main () {
   await sender.connect()
   await receiver.connect()
 
-  await PSK2.listen(receiver, {
-    secret: sharedSecret
+  const { destinationAccount, sharedSecret } = PSK2.generateParams({
+    destinationAccount: 'example.mini.' + tokenToAccount('receiver'),
+    receiverSecret
+  })
+
+  const stopListening = PSK2.listen(receiver, {
+    receiverSecret
   })
 
   const quote = await PSK2.quote(sender, {
-    destination: 'example.mini.' + tokenToAccount('receiver'),
+    destinationAccount,
     sourceAmount: '10',
     sharedSecret
   })
   console.log('got quote:', quote)
 
   const sendResult = await PSK2.send(sender, {
-    destination: 'example.mini.' + tokenToAccount('receiver'),
+    destinationAccount,
     sourceAmount: '100',
     sharedSecret
   })
   console.log('sent payment. result:', sendResult)
 
   const deliverResult = await PSK2.deliver(sender, {
-    destination: 'example.mini.' + tokenToAccount('receiver'),
+    destinationAccount,
     destinationAmount: '1500',
     sharedSecret
   })
   console.log('sent payment. result:', deliverResult)
+
+  stopListening()
 }
 
 main().catch((err) => console.log(err))

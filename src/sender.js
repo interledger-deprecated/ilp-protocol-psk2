@@ -19,7 +19,8 @@ async function quote (plugin, {
   sourceAmount,
   destinationAmount,
   sharedSecret,
-  destinationAccount
+  destinationAccount,
+  quoteId = crypto.randomBytes(16)
 }) {
   plugin = convertToV2Plugin(plugin)
   const debug = Debug('ilp-psk2:quote')
@@ -28,7 +29,6 @@ async function quote (plugin, {
   assert(sourceAmount || destinationAmount, 'either sourceAmount or destinationAmount is required')
   assert(!sourceAmount || !destinationAmount, 'cannot supply both sourceAmount and destinationAmount')
 
-  const quoteId = crypto.randomBytes(16)
   const data = serializePskPacket({
     sharedSecret,
     type: constants.TYPE_LAST_CHUNK,
@@ -81,7 +81,8 @@ async function quote (plugin, {
       const sourceAmount = new BigNumber(destinationAmount)
         .div(amountArrived)
         .times(STARTING_TRANSFER_AMOUNT)
-        .round(0, 1)
+        .round(0, BigNumber.ROUND_UP)
+        // TODO should we always round up or just half up?
       return {
         sourceAmount: sourceAmount.toString(10)
       }
@@ -92,11 +93,13 @@ async function quote (plugin, {
 async function send (plugin, {
   sourceAmount,
   sharedSecret,
-  destinationAccount
+  destinationAccount,
+  paymentId
 }) {
   assert(sharedSecret, 'sharedSecret is required')
   assert(Buffer.from(sharedSecret, 'base64').length >= 32, 'sharedSecret must be at least 32 bytes')
   assert(sourceAmount, 'sourceAmount is required')
+  assert(!paymentId || (Buffer.isBuffer(paymentId) && paymentId.length === 16), 'paymentId must be a 16-byte buffer if supplied')
   return sendChunkedPayment(plugin, { sourceAmount, sharedSecret, destinationAccount })
 }
 
@@ -104,10 +107,12 @@ async function deliver (plugin, {
   destinationAmount,
   sharedSecret,
   destinationAccount,
+  paymentId
 }) {
   assert(sharedSecret, 'sharedSecret is required')
   assert(Buffer.from(sharedSecret, 'base64').length >= 32, 'sharedSecret must be at least 32 bytes')
   assert(destinationAmount, 'destinationAmount is required')
+  assert(!paymentId || (Buffer.isBuffer(paymentId) && paymentId.length === 16), 'paymentId must be a 16-byte buffer if supplied')
   return sendChunkedPayment(plugin, { destinationAmount, sharedSecret, destinationAccount })
 }
 
@@ -118,11 +123,11 @@ async function sendChunkedPayment (plugin, {
   destinationAccount,
   sourceAmount,
   destinationAmount,
+  paymentId = crypto.randomBytes(16)
 }) {
   plugin = convertToV2Plugin(plugin)
   const debug = Debug('ilp-psk2:chunkedPayment')
   const secret = Buffer.from(sharedSecret, 'base64')
-  const paymentId = crypto.randomBytes(16)
 
   let amountSent = new BigNumber(0)
   let amountDelivered = new BigNumber(0)

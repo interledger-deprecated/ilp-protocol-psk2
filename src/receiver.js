@@ -18,9 +18,9 @@ const SHARED_SECRET_LENGTH = 32
 
 function listen (plugin, {
   receiverSecret,
-  notifyEveryChunk,
   acceptableOverpaymentMultiple = 1.01
 }, callback) {
+  // TODO add option to notify receiver about every incoming chunk?
   assert(receiverSecret, 'receiverSecret is required')
   assert(Buffer.from(receiverSecret, 'base64').length >= 32, 'receiverSecret must be at least 32 bytes')
   assert(typeof callback === 'function', 'review callback must be a function')
@@ -194,6 +194,7 @@ function listen (plugin, {
       })
     }
 
+    // Let the sender know how much has arrived
     const response = serializePskPacket({
       sharedSecret,
       type: constants.TYPE_FULFILLMENT,
@@ -215,6 +216,7 @@ function listen (plugin, {
   }
 
   return () => {
+    debug('stop listening')
     plugin.deregisterTransferHandler()
   }
 }

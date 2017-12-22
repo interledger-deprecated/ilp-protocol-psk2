@@ -51,6 +51,13 @@ async function main () {
   })
   console.log('got quote:', quote)
 
+  const singleChunkResult = await PSK2.sendSingleChunk(sender, {
+    destinationAccount,
+    sourceAmount: '10',
+    sharedSecret
+  })
+  console.log('sent single chunk payment. result:', singleChunkResult)
+
   const sendResult = await PSK2.send(sender, {
     destinationAccount,
     sourceAmount: '100',

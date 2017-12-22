@@ -180,6 +180,9 @@ function listen (plugin, {
       throwError('F05', 'condition generated does not match')
     }
 
+    record.chunksFulfilled += 1
+    debug(`got ${record.finished ? 'last ' : ''}chunk of amount ${transfer.amount} for payment: ${paymentId}. total received: ${record.received.toString(10)}`)
+
     // Update stats based on that chunk
     record.received = record.received.plus(transfer.amount)
     if (record.received.gte(record.expected) || request.type === constants.TYPE_LAST_CHUNK) {
@@ -204,10 +207,7 @@ function listen (plugin, {
       chunkAmount: new BigNumber(transfer.amount)
     })
 
-    debug(`got ${record.finished ? 'last ' : ''}chunk of amount ${transfer.amount} for payment: ${paymentId}. total received: ${record.received.toString(10)}`)
-
     debug(`fulfilling transfer ${request.sequence} for payment ${paymentId} with fulfillment: ${fulfillment.toString('base64')}`)
-    record.chunksFulfilled += 1
 
     return {
       fulfillment,

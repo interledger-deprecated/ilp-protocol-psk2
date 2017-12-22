@@ -28,14 +28,20 @@ async function quote (plugin, {
   assert(Buffer.from(sharedSecret, 'base64').length >= 32, 'sharedSecret must be at least 32 bytes')
   assert(sourceAmount || destinationAmount, 'either sourceAmount or destinationAmount is required')
   assert(!sourceAmount || !destinationAmount, 'cannot supply both sourceAmount and destinationAmount')
+  assert(!quoteId || (Buffer.isBuffer(quoteId) && quoteId.length === 16), 'quoteId must be a 16-byte buffer if supplied')
 
+  const sequence = 0
   const data = serializePskPacket({
     sharedSecret,
+    // TODO should this be the last chunk? what if you want to use the same id for the quote and payment?
     type: constants.TYPE_LAST_CHUNK,
     paymentId: quoteId,
-    sequence: 0,
+    sequence,
     paymentAmount: constants.MAX_UINT64,
-    chunkAmount: constants.MAX_UINT64,
+    // Setting the chunk amount to the max will cause the receiver to
+    // reject the chunk (though we also make the condition unfulfillable
+    // to ensure that they cannot fulfill the chunk)
+    chunkAmount: constants.MAX_UINT64
   })
   const ilp = IlpPacket.serializeIlpForwardedPayment({
     account: destinationAccount,
@@ -45,6 +51,7 @@ async function quote (plugin, {
   const amount = sourceAmount || STARTING_TRANSFER_AMOUNT
   const transfer = {
     amount,
+    // Unfulfillable condition
     executionCondition: crypto.randomBytes(32),
     expiresAt: new Date(Date.now() + DEFAULT_TRANSFER_TIMEOUT).toISOString(),
     ilp
@@ -65,6 +72,7 @@ async function quote (plugin, {
       // Validate that this is actually the response to our request
       assert(quoteResponse.type === constants.TYPE_ERROR, 'response type must be error')
       assert(quoteId.equals(quoteResponse.paymentId), 'response Payment ID does not match outgoing quote')
+      assert(sequence === quoteResponse.sequence, 'sequence does not match outgoing quote')
 
       amountArrived = quoteResponse.chunkAmount
     } catch (decryptionErr) {
@@ -75,6 +83,8 @@ async function quote (plugin, {
     debug(`receiver got: ${amountArrived.toString(10)} when sender sent: ${amount} (rate: ${amountArrived.div(amount).toString(10)})`)
     if (sourceAmount) {
       return {
+        id: quoteId.toString('hex'),
+        sourceAmount,
         destinationAmount: amountArrived.toString(10)
       }
     } else {
@@ -84,9 +94,100 @@ async function quote (plugin, {
         .round(0, BigNumber.ROUND_UP)
         // TODO should we always round up or just half up?
       return {
-        sourceAmount: sourceAmount.toString(10)
+        id: quoteId.toString('hex'),
+        sourceAmount: sourceAmount.toString(10),
+        destinationAmount
       }
     }
+  }
+}
+
+async function sendSingleChunk (plugin, {
+  sourceAmount,
+  sharedSecret,
+  destinationAccount,
+  minDestinationAmount = 0,
+  paymentId = crypto.randomBytes(16)
+}) {
+  plugin = convertToV2Plugin(plugin)
+  const debug = Debug('ilp-psk2:singleChunk')
+
+  assert(sharedSecret, 'sharedSecret is required')
+  assert(Buffer.from(sharedSecret, 'base64').length >= 32, 'sharedSecret must be at least 32 bytes')
+  assert(sourceAmount, 'sourceAmount is required')
+  assert(!paymentId || (Buffer.isBuffer(paymentId) && paymentId.length === 16), 'paymentId must be a 16-byte buffer if supplied')
+
+  debug(`sending single chunk payment ${paymentId.toString('hex')} with source amount: ${sourceAmount} and minimum destination amount: ${minDestinationAmount}`)
+
+  const sequence = 0
+  const data = serializePskPacket({
+    sharedSecret,
+    type: constants.TYPE_LAST_CHUNK,
+    paymentId,
+    sequence,
+    // We don't set the paymentAmount to the minDestinationAmount just in case
+    // we deliver slightly too much (for example because of rounding issues) and we
+    // don't want the receiver to reject the transfer because of this
+    paymentAmount: constants.MAX_UINT64,
+    chunkAmount: new BigNumber(minDestinationAmount)
+  })
+  const ilp = IlpPacket.serializeIlpForwardedPayment({
+    account: destinationAccount,
+    data
+  })
+
+  const fulfillment = dataToFulfillment(sharedSecret, data)
+  const executionCondition = fulfillmentToCondition(fulfillment)
+
+  const transfer = {
+    ilp,
+    amount: new BigNumber(sourceAmount).toString(10),
+    expiresAt: new Date(Date.now() + DEFAULT_TRANSFER_TIMEOUT).toISOString(),
+    executionCondition
+  }
+
+  let result
+  try {
+    result = await plugin.sendTransfer(transfer)
+  } catch (err) {
+    // TODO handle timeout errors
+    if (err.name !== 'InterledgerRejectionError' || !err.ilpRejection) {
+      debug('error sending transfer:', err)
+      throw err
+    }
+
+    let rejection
+    try {
+      rejection = IlpPacket.deserializeIlpRejection(err.ilpRejection)
+      err.message = `${rejection.code}: ${rejection.message || err.message}`
+    } catch (e) {
+      // Just throw the error normally if we can't parse the rejection
+    }
+    throw err
+  }
+
+  assert(fulfillment.equals(result.fulfillment), `received invalid fulfillment. expected: ${fulfillment.toString('base64')}, actual: ${result.fulfillment.toString('base64')}`)
+
+  let amountArrived
+  try {
+    const response = deserializePskPacket(sharedSecret, result.ilp)
+
+    assert(constants.TYPE_FULFILLMENT === response.type, `unexpected packet type. expected: ${constants.TYPE_FULFILLMENT}, actual: ${response.type}`)
+    assert(paymentId.equals(response.paymentId), `response does not correspond to request. payment id does not match. actual: ${response.paymentId.toString('hex')}, expected: ${paymentId.toString('hex')}`)
+    assert(sequence === response.sequence, `response does not correspond to request. sequence does not match. actual: ${response.sequence}, expected: ${sequence}`)
+
+    amountArrived = response.chunkAmount
+  } catch (err) {
+    debug('got invalid response:', err, JSON.stringify(result))
+    throw new Error('Invalid response from receiver: ' + err.message)
+  }
+
+  debug(`sent single chunk payment ${paymentId.toString('hex')} with source amount: ${sourceAmount}, destination amount: ${amountArrived.toString(10)}`)
+
+  return {
+    id: paymentId.toString('hex'),
+    sourceAmount,
+    destinationAmount: amountArrived.toString(10)
   }
 }
 
@@ -127,7 +228,6 @@ async function sendChunkedPayment (plugin, {
 }) {
   plugin = convertToV2Plugin(plugin)
   const debug = Debug('ilp-psk2:chunkedPayment')
-  const secret = Buffer.from(sharedSecret, 'base64')
 
   let amountSent = new BigNumber(0)
   let amountDelivered = new BigNumber(0)
@@ -139,7 +239,7 @@ async function sendChunkedPayment (plugin, {
 
   function handleReceiverResponse ({ encrypted, expectedType, expectedSequence }) {
     try {
-      const response = deserializePskPacket(secret, encrypted)
+      const response = deserializePskPacket(sharedSecret, encrypted)
 
       assert(expectedType === response.type, `unexpected packet type. expected: ${expectedType}, actual: ${response.type}`)
       assert(paymentId.equals(response.paymentId), `response does not correspond to request. payment id does not match. actual: ${response.paymentId.toString('hex')}, expected: ${paymentId.toString('hex')}`)
@@ -214,7 +314,7 @@ async function sendChunkedPayment (plugin, {
       data
     })
 
-    const fulfillment = dataToFulfillment(secret, data)
+    const fulfillment = dataToFulfillment(sharedSecret, data)
     const executionCondition = fulfillmentToCondition(fulfillment)
 
     debug(`sending chunk of: ${chunkSize.toString(10)}`)
@@ -289,6 +389,7 @@ async function sendChunkedPayment (plugin, {
   debug(`sent payment. source amount: ${amountSent.toString(10)}, destination amount: ${amountDelivered.toString(10)}, number of chunks: ${sequence + 1}`)
 
   return {
+    id: paymentId.toString('hex'),
     sourceAmount: amountSent.toString(10),
     destinationAmount: amountDelivered.toString(10),
     numChunks: sequence + 1
@@ -296,5 +397,6 @@ async function sendChunkedPayment (plugin, {
 }
 
 exports.quote = quote
+exports.sendSingleChunk = sendSingleChunk
 exports.send = send
 exports.deliver = deliver

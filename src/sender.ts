@@ -5,8 +5,8 @@ import BigNumber from 'bignumber.js'
 import * as IlpPacket from 'ilp-packet'
 import convert from 'ilp-compat-plugin'
 import * as constants from './constants'
-import { serializePskPacket, deserializePskPacket, PskPacket } from './encoding' 
-import { dataToFulfillment, fulfillmentToCondition } from './condition' 
+import { serializePskPacket, deserializePskPacket, PskPacket } from './encoding'
+import { dataToFulfillment, fulfillmentToCondition } from './condition'
 
 const DEFAULT_TRANSFER_TIMEOUT = 2000
 const STARTING_TRANSFER_AMOUNT = 1000
@@ -45,54 +45,50 @@ export async function quote (plugin: any, opts: QuoteOpts): Promise<QuoteResult>
 
   const sequence = 0
   const data = serializePskPacket(
-    sharedSecret,
-  {
-    // TODO should this be the last chunk? what if you want to use the same id for the quote and payment?
-    type: constants.TYPE_LAST_CHUNK,
-    paymentId: id,
-    sequence,
-    paymentAmount: constants.MAX_UINT64,
-    // Setting the chunk amount to the max will cause the receiver to
-    // reject the chunk (though we also make the condition unfulfillable
-    // to ensure that they cannot fulfill the chunk)
-    chunkAmount: constants.MAX_UINT64
-  })
-  const ilp = IlpPacket.serializeIlpForwardedPayment({
-    account: destinationAccount,
+    sharedSecret, {
+      // TODO should this be the last chunk? what if you want to use the same id for the quote and payment?
+      type: constants.TYPE_LAST_CHUNK,
+      paymentId: id,
+      sequence,
+      paymentAmount: constants.MAX_UINT64,
+      // Setting the chunk amount to the max will cause the receiver to
+      // reject the chunk (though we also make the condition unfulfillable
+      // to ensure that they cannot fulfill the chunk)
+      chunkAmount: constants.MAX_UINT64
+    })
+  const amount = new BigNumber(sourceAmount || STARTING_TRANSFER_AMOUNT).toString(10)
+  const ilp = IlpPacket.serializeIlpPrepare({
+    destination: destinationAccount,
+    amount,
+    executionCondition: crypto.randomBytes(32),
+    expiresAt: new Date(Date.now() + DEFAULT_TRANSFER_TIMEOUT),
     data
   })
 
-  const amount = sourceAmount || STARTING_TRANSFER_AMOUNT
-  const transfer = {
-    amount,
-    // Unfulfillable condition
-    executionCondition: crypto.randomBytes(32),
-    expiresAt: new Date(Date.now() + DEFAULT_TRANSFER_TIMEOUT).toISOString(),
-    ilp
+  let amountArrived = new BigNumber(0)
+  const result = await plugin.sendData(ilp)
+  let rejection
+  try {
+    rejection = IlpPacket.deserializeIlpReject(result)
+    assert(rejection.code === 'F99', `Got unexpected error code: ${rejection.code} ${rejection.message}`)
+    assert(rejection.data.length > 0, 'Got empty response data')
+  } catch (err) {
+    debug('error deserializing quote response:', err)
+    throw new Error('Error getting quote: ' + err.message)
   }
 
-  let amountArrived = new BigNumber(0)
   try {
-    await plugin.sendTransfer(transfer)
-  } catch (err) {
-    if (!err.ilpRejection) {
-      throw err
-    }
+    const quoteResponse = deserializePskPacket(sharedSecret, rejection.data)
 
-    try {
-      const rejection = IlpPacket.deserializeIlpRejection(err.ilpRejection)
-      const quoteResponse = deserializePskPacket(sharedSecret, rejection.data)
+    // Validate that this is actually the response to our request
+    assert(quoteResponse.type === constants.TYPE_ERROR, 'response type must be error')
+    assert(id.equals(quoteResponse.paymentId), 'response Payment ID does not match outgoing quote')
+    assert(sequence === quoteResponse.sequence, 'sequence does not match outgoing quote')
 
-      // Validate that this is actually the response to our request
-      assert(quoteResponse.type === constants.TYPE_ERROR, 'response type must be error')
-      assert(id.equals(quoteResponse.paymentId), 'response Payment ID does not match outgoing quote')
-      assert(sequence === quoteResponse.sequence, 'sequence does not match outgoing quote')
-
-      amountArrived = quoteResponse.chunkAmount
-    } catch (decryptionErr) {
-      debug('error parsing encrypted quote response', decryptionErr, err.ilpRejection.toString('base64'))
-      throw err
-    }
+    amountArrived = quoteResponse.chunkAmount
+  } catch (decryptionErr) {
+    debug('error parsing encrypted quote response', decryptionErr, result.toString('base64'))
+    throw new Error('unable to parse quote response')
   }
 
   debug(`receiver got: ${amountArrived.toString(10)} when sender sent: ${amount} (rate: ${amountArrived.div(amount).toString(10)})`)
@@ -161,46 +157,47 @@ export async function sendSingleChunk (plugin: any, opts: SendSingleChunkOpts): 
     paymentAmount: constants.MAX_UINT64,
     chunkAmount: new BigNumber(minDestinationAmount)
   })
-  const ilp = IlpPacket.serializeIlpForwardedPayment({
-    account: destinationAccount,
+  const fulfillment = dataToFulfillment(sharedSecret, data)
+  const executionCondition = fulfillmentToCondition(fulfillment)
+  const ilp = IlpPacket.serializeIlpPrepare({
+    destination: destinationAccount,
+    amount: new BigNumber(sourceAmount).toString(10),
+    executionCondition,
+    expiresAt: new Date(Date.now() + DEFAULT_TRANSFER_TIMEOUT),
     data
   })
 
-  const fulfillment = dataToFulfillment(sharedSecret, data)
-  const executionCondition = fulfillmentToCondition(fulfillment)
+  const result = await plugin.sendData(ilp)
 
-  const transfer = {
-    ilp,
-    amount: new BigNumber(sourceAmount).toString(10),
-    expiresAt: new Date(Date.now() + DEFAULT_TRANSFER_TIMEOUT).toISOString(),
-    executionCondition
-  }
-
-  let result
+  let parsed
   try {
-    result = await plugin.sendTransfer(transfer)
+    parsed = IlpPacket.deserializeIlpPacket(result)
   } catch (err) {
-    // TODO handle timeout errors
-    if (err.name !== 'InterledgerRejectionError' || !err.ilpRejection) {
-      debug('error sending transfer:', err)
-      throw err
-    }
-
-    let rejection
-    try {
-      rejection = IlpPacket.deserializeIlpRejection(err.ilpRejection)
-      err.message = `${rejection.code}: ${rejection.message || err.message}`
-    } catch (e) {
-      // Just throw the error normally if we can't parse the rejection
-    }
+    debug('error parsing sendData response:', err, 'response:', result.toString('base64'))
     throw err
   }
 
-  assert(fulfillment.equals(result.fulfillment), `received invalid fulfillment. expected: ${fulfillment.toString('base64')}, actual: ${result.fulfillment.toString('base64')}`)
+  let fulfillmentInfo: IlpPacket.IlpFulfill
+  if (parsed.type === IlpPacket.Type.TYPE_ILP_FULFILL) {
+    fulfillmentInfo = parsed.data as IlpPacket.IlpFulfill
+  } else if (parsed.type === IlpPacket.Type.TYPE_ILP_REJECT) {
+    const rejection = parsed.data as IlpPacket.IlpRejection
+    // TODO use ILP error code string
+    debug('error sending payment:', JSON.stringify(rejection))
+    throw new Error(`Error sending payment. code: ${rejection.code}, message: ${rejection.message} `)
+  } else {
+    debug('sendData returned unexpected packet type:', JSON.stringify(parsed))
+    throw new Error('Unexpected type for sendData response: ' + parsed.type)
+  }
+
+  if (!fulfillment.equals(fulfillmentInfo.fulfillment)) {
+    debug(`Received invalid fulfillment. expected: ${fulfillment.toString('base64')}, actual: ${result.fulfillment.toString('base64')}`)
+    throw new Error(`Received invalid fulfillment. expected: ${fulfillment.toString('base64')}, actual: ${result.fulfillment.toString('base64')}`)
+  }
 
   let amountArrived
   try {
-    const response = deserializePskPacket(sharedSecret, result.ilp)
+    const response = deserializePskPacket(sharedSecret, fulfillmentInfo.data)
 
     assert(constants.TYPE_FULFILLMENT === response.type, `unexpected packet type. expected: ${constants.TYPE_FULFILLMENT}, actual: ${response.type}`)
     assert(id.equals(response.paymentId), `response does not correspond to request. payment id does not match. actual: ${response.paymentId.toString('hex')}, expected: ${id.toString('hex')}`)
@@ -342,7 +339,9 @@ async function sendChunkedPayment (plugin: any, opts: ChunkedPaymentOpts): Promi
     }
 
     // TODO should we allow the rate to fluctuate more?
-    const minimumAmountReceiverShouldAccept = rate.times(chunkSize)
+    const minimumAmountReceiverShouldAccept = BigNumber.min(
+      rate.times(chunkSize),
+      constants.MAX_UINT64)
 
     const data = serializePskPacket(sharedSecret, {
       type: (lastChunk ? constants.TYPE_LAST_CHUNK : constants.TYPE_CHUNK),
@@ -351,30 +350,36 @@ async function sendChunkedPayment (plugin: any, opts: ChunkedPaymentOpts): Promi
       paymentAmount: (destinationAmount ? new BigNumber(destinationAmount) : constants.MAX_UINT64),
       chunkAmount: minimumAmountReceiverShouldAccept
     })
-    const ilp = IlpPacket.serializeIlpForwardedPayment({
-      account: destinationAccount,
+    const fulfillment = dataToFulfillment(sharedSecret, data)
+    const executionCondition = fulfillmentToCondition(fulfillment)
+    const prepare = IlpPacket.serializeIlpPrepare({
+      destination: destinationAccount,
+      amount: chunkSize.toString(10),
+      expiresAt: new Date(Date.now() + DEFAULT_TRANSFER_TIMEOUT),
+      executionCondition,
       data
     })
 
-    const fulfillment = dataToFulfillment(sharedSecret, data)
-    const executionCondition = fulfillmentToCondition(fulfillment)
+    const result = await plugin.sendData(prepare)
 
-    debug(`sending chunk of: ${chunkSize.toString(10)}`)
-    const transfer = {
-      ilp,
-      amount: chunkSize.toString(10),
-      expiresAt: new Date(Date.now() + DEFAULT_TRANSFER_TIMEOUT).toISOString(),
-      executionCondition
+    let parsed
+    try {
+      parsed = IlpPacket.deserializeIlpPacket(result)
+    } catch (err) {
+      debug('error parsing sendData response:', err, 'response:', result.toString('base64'))
+      throw err
     }
 
-    try {
-      const result = await plugin.sendTransfer(transfer)
-      amountSent = amountSent.plus(transfer.amount)
+    if (parsed.type === IlpPacket.Type.TYPE_ILP_FULFILL) {
+      const fulfill = parsed.data as IlpPacket.IlpFulfill
 
-      handleReceiverResponse(
-        result.ilp,
-        constants.TYPE_FULFILLMENT,
-        sequence)
+      if (!fulfillment.equals(fulfill.fulfillment)) {
+        debug(`Received invalid fulfillment. expected: ${fulfillment.toString('base64')}, actual: ${fulfill.fulfillment.toString('base64')}`)
+        throw new Error(`Received invalid fulfillment. expected: ${fulfillment.toString('base64')}, actual: ${fulfill.fulfillment.toString('base64')}`)
+      }
+
+      amountSent = amountSent.plus(chunkSize)
+      handleReceiverResponse(fulfill.data, constants.TYPE_FULFILLMENT, sequence)
 
       chunksFulfilled += 1
       chunkSize = chunkSize.times(TRANSFER_INCREASE).round(0)
@@ -386,29 +391,15 @@ async function sendChunkedPayment (plugin: any, opts: ChunkedPaymentOpts): Promi
       } else {
         sequence++
       }
-    } catch (err) {
-      chunksRejected += 1
-
-      if (err.name !== 'InterledgerRejectionError' || !err.ilpRejection) {
-        debug('got error other than an InterledgerRejectionError:', err)
-        throw err
-      }
-
-      let ilpRejection
-      try {
-        ilpRejection = IlpPacket.deserializeIlpRejection(err.ilpRejection)
-      } catch (err) {
-        debug('error parsing IlpRejection from receiver:', err && err.stack)
-        throw new Error('Error parsing IlpRejection from receiver: ' + err.message)
-      }
-
-      if (ilpRejection.code === 'F99') {
+    } else if (parsed.type === IlpPacket.Type.TYPE_ILP_REJECT) {
+      const rejection = parsed.data as IlpPacket.IlpRejection
+      if (rejection.code === 'F99') {
         // Handle if the receiver rejects the transfer with a PSK packet
         handleReceiverResponse(
-          ilpRejection.data,
+          rejection.data,
           constants.TYPE_ERROR,
           sequence)
-      } else if (ilpRejection.code[0] === 'T' || ilpRejection.code[0] === 'R') {
+      } else if (rejection.code[0] === 'T' || rejection.code[0] === 'R') {
         // Handle temporary and relative errors
         // TODO is this the right behavior in this situation?
         // TODO don't retry forever
@@ -419,13 +410,16 @@ async function sendChunkedPayment (plugin: any, opts: ChunkedPaymentOpts): Promi
           chunkSize = new BigNumber(1)
         }
         timeToWait = Math.max(timeToWait * 2, 100)
-        debug(`got temporary ILP rejection: ${ilpRejection.code}, reducing chunk size to: ${chunkSize.toString(10)} and waiting: ${timeToWait}ms`)
+        debug(`got temporary ILP rejection: ${rejection.code}, reducing chunk size to: ${chunkSize.toString(10)} and waiting: ${timeToWait}ms`)
         await new Promise((resolve, reject) => setTimeout(resolve, timeToWait))
       } else {
         // TODO is it ever worth retrying here?
-        debug('got ILP rejection with final error:', JSON.stringify(ilpRejection))
-        throw new Error(`Transfer rejected with final error: ${ilpRejection.code}${(ilpRejection.message ? ': ' + ilpRejection.message : '')}`)
+        debug('got ILP rejection with final error:', JSON.stringify(rejection))
+        throw new Error(`Transfer rejected with final error: ${rejection.code}${(rejection.message ? ': ' + rejection.message : '')}`)
       }
+    } else {
+      debug('sendData returned unexpected packet type:', JSON.stringify(parsed))
+      throw new Error('Unexpected type for sendData response: ' + parsed.type)
     }
   }
 

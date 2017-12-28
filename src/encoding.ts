@@ -77,6 +77,7 @@ function encrypt (secret: Buffer, data: Buffer): Buffer {
 }
 
 function decrypt (secret: Buffer, data: Buffer): Buffer {
+  assert(data.length > 0, 'cannot decrypt empty buffer')
   const pskEncryptionKey = hmac(secret, Buffer.from(constants.PSK_ENCRYPTION_STRING, 'utf8'))
   const nonce = data.slice(0, constants.IV_LENGTH)
   const tag = data.slice(constants.IV_LENGTH, constants.IV_LENGTH + constants.AUTH_TAG_LENGTH)

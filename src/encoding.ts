@@ -26,8 +26,8 @@ export function serializePskPacket (sharedSecret: Buffer, pskPacket: PskPacket):
   assert(Number.isInteger(type) && type < 256, 'type must be a UInt8')
   assert(Buffer.isBuffer(paymentId) && paymentId.length === 16, 'paymentId must be a 16-byte buffer')
   assert(Number.isInteger(sequence) && sequence <= constants.MAX_UINT32, 'sequence must be a UInt32')
-  assert(paymentAmount instanceof BigNumber && paymentAmount.lte(constants.MAX_UINT64), 'paymentAmount must be a UInt64')
-  assert(chunkAmount instanceof BigNumber && chunkAmount.lte(constants.MAX_UINT64), 'chunkAmount must be a UInt64')
+  assert(paymentAmount instanceof BigNumber && paymentAmount.isInteger() && paymentAmount.lte(constants.MAX_UINT64), 'paymentAmount must be a UInt64')
+  assert(chunkAmount instanceof BigNumber && chunkAmount.isInteger() && chunkAmount.lte(constants.MAX_UINT64), 'chunkAmount must be a UInt64')
   assert(Buffer.isBuffer(applicationData), 'applicationData must be a buffer')
 
   const writer = new oer.Writer()

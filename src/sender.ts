@@ -287,7 +287,7 @@ async function sendChunkedPayment (plugin: any, opts: ChunkedPaymentOpts): Promi
 
       const amountReceived = response.paymentAmount
       debug(`receiver says they have received: ${amountReceived.toString(10)}`)
-      if (amountReceived.gt(amountDelivered)) {
+      if (amountReceived.gte(amountDelivered)) {
         amountDelivered = amountReceived
         rate = amountDelivered.div(amountSent)
       } else {
@@ -340,7 +340,7 @@ async function sendChunkedPayment (plugin: any, opts: ChunkedPaymentOpts): Promi
 
     // TODO should we allow the rate to fluctuate more?
     const minimumAmountReceiverShouldAccept = BigNumber.min(
-      rate.times(chunkSize),
+      rate.times(chunkSize).round(0, BigNumber.ROUND_DOWN),
       constants.MAX_UINT64)
 
     const data = serializePskPacket(sharedSecret, {

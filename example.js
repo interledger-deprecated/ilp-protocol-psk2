@@ -39,40 +39,48 @@ async function main () {
   const stopListening = PSK2.listen(receiver, {
     receiverSecret
   }, async ({ paymentId, expectedAmount, accept, reject }) => {
-    console.log(`receiver accepting payment: ${paymentId} with expected amount: ${expectedAmount}`)
     const result = await accept()
     console.log('receiver got payment', result)
   })
 
+  console.log('sending test payment for quote with source amount: 10')
   const quote = await PSK2.quote(sender, {
     destinationAccount,
     sourceAmount: '10',
     sharedSecret
   })
   console.log('got quote:', quote)
+  console.log('\n')
 
+  console.log('sending single chunk payment with source amount: 10')
   const singleChunkResult = await PSK2.sendSingleChunk(sender, {
     destinationAccount,
     sourceAmount: '10',
     sharedSecret
   })
   console.log('sent single chunk payment. result:', singleChunkResult)
+  console.log('\n')
 
+  console.log('sending chunked payment with source amount: 100')
   const sendResult = await PSK2.send(sender, {
     destinationAccount,
     sourceAmount: '100',
     sharedSecret
   })
   console.log('sent payment. result:', sendResult)
+  console.log('\n')
 
+  console.log('sending chunked payment with destination amount: 5000')
   const deliverResult = await PSK2.deliver(sender, {
     destinationAccount,
-    destinationAmount: '1500',
+    destinationAmount: '5000',
     sharedSecret
   })
   console.log('sent payment. result:', deliverResult)
+  console.log('\n')
 
   stopListening()
+  process.exit(0)
 }
 
 main().catch((err) => console.log(err))

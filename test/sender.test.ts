@@ -2,7 +2,7 @@ import 'mocha'
 import * as sinon from 'sinon'
 import { assert } from 'chai'
 import * as crypto from 'crypto'
-import mock = require('mock-require') 
+import mock = require('mock-require')
 import BigNumber from 'bignumber.js'
 import * as IlpPacket from 'ilp-packet'
 import MockPlugin from './mocks/plugin'

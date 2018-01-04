@@ -6,3 +6,4 @@ coverage
 **/*.js.map
 **/*.d.ts
 .nyc_output
+!wallaby.js

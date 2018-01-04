@@ -47,7 +47,7 @@ export interface PaymentResult {
 
 export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback: ReviewCallback): () => void {
   // TODO add option to notify receiver about every incoming chunk?
-  plugin = convertToV2Plugin(plugin) as PluginV2
+  plugin = convertToV2Plugin(plugin)
   const {
     receiverSecret,
     acceptableOverpaymentMultiple = 1.01
@@ -72,7 +72,6 @@ export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback
   async function handleData (data: Buffer): Promise<Buffer> {
     let prepare: IlpPacket.IlpPrepare
     let sharedSecret: Buffer
-    let err
     try {
       prepare = IlpPacket.deserializeIlpPrepare(data)
       const parsedAccount = parseAccount(prepare.destination)
@@ -173,7 +172,7 @@ export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback
             paymentId,
             expectedAmount: record.expected.toString(10),
             accept: async () => {
-              await resolve()
+              resolve()
               // The promise returned to the receiver will be fulfilled
               // when the whole payment is finished
               return new Promise((resolve, reject) => {

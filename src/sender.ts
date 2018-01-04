@@ -210,11 +210,12 @@ export async function sendSingleChunk (plugin: any, opts: SendSingleChunkOpts): 
     throw err
   }
 
-  let fulfillmentInfo: IlpPacket.IlpFulfill
+  let fulfillmentInfo
   if (parsed.type === IlpPacket.Type.TYPE_ILP_FULFILL) {
     fulfillmentInfo = parsed.data as IlpPacket.IlpFulfill
   } else if (parsed.type === IlpPacket.Type.TYPE_ILP_REJECT) {
     const rejection = parsed.data as IlpPacket.IlpRejection
+    // TODO throw specific error if the receiver says they received too little
     // TODO use ILP error code string
     debug('error sending payment:', JSON.stringify(rejection))
     throw new Error(`Error sending payment. code: ${rejection.code}, message: ${rejection.message} `)
@@ -224,8 +225,8 @@ export async function sendSingleChunk (plugin: any, opts: SendSingleChunkOpts): 
   }
 
   if (!fulfillment.equals(fulfillmentInfo.fulfillment)) {
-    debug(`Received invalid fulfillment. expected: ${fulfillment.toString('base64')}, actual: ${result.fulfillment.toString('base64')}`)
-    throw new Error(`Received invalid fulfillment. expected: ${fulfillment.toString('base64')}, actual: ${result.fulfillment.toString('base64')}`)
+    debug(`Received invalid fulfillment. expected: ${fulfillment.toString('base64')}, actual: ${fulfillmentInfo.fulfillment.toString('base64')}`)
+    throw new Error(`Received invalid fulfillment. expected: ${fulfillment.toString('base64')}, actual: ${fulfillmentInfo.fulfillment.toString('base64')}`)
   }
 
   let amountArrived

@@ -7,7 +7,7 @@
     "build": "tsc",
     "pretest": "tsc",
     "test": "nyc mocha",
-    "lint": "tslint"
+    "lint": "tslint --project ."
   },
   "repository": {
     "type": "git",

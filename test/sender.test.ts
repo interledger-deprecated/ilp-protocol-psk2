@@ -9,7 +9,7 @@ import MockPlugin from './mocks/plugin'
 
 const SHARED_SECRET = Buffer.alloc(32, 0)
 const PAYMENT_ID = Buffer.from('465736837f790f773baafd63828f38b6', 'hex')
-const CONDITION = Buffer.from('a4d735b6bd09ebbc971b817384e8fa1d110b0df130c16ac4d326f508040acbc1', 'hex')
+const QUOTE_CONDITION = Buffer.from('a4d735b6bd09ebbc971b817384e8fa1d110b0df130c16ac4d326f508040acbc1', 'hex')
 const NONCE = Buffer.from('6c93ab43f2b70ac9a0d3844f', 'hex')
 const MAX_UINT64 = new BigNumber('18446744073709551615')
 
@@ -22,7 +22,7 @@ mock('crypto', {
       case 16:
         return PAYMENT_ID
       case 32:
-        return CONDITION
+        return QUOTE_CONDITION
       default:
         return Buffer.alloc(0)
     }
@@ -69,7 +69,7 @@ describe('Sender', function () {
       assert(spy.calledWith(IlpPacket.serializeIlpPrepare({
         destination: 'test.receiver',
         amount: '10',
-        executionCondition: CONDITION,
+        executionCondition: QUOTE_CONDITION,
         expiresAt: new Date(2000),
         data: encoding.serializePskPacket(SHARED_SECRET, {
           type: 1,
@@ -172,7 +172,7 @@ describe('Sender', function () {
       assert(spy.calledWith(IlpPacket.serializeIlpPrepare({
         destination: 'test.receiver',
         amount: '1000',
-        executionCondition: CONDITION,
+        executionCondition: QUOTE_CONDITION,
         expiresAt: new Date(2000),
         data: encoding.serializePskPacket(SHARED_SECRET, {
           type: 1,
@@ -195,6 +195,136 @@ describe('Sender', function () {
 
       assert.equal(result.destinationAmount, '20')
       assert.equal(result.sourceAmount, '40')
+    })
+  })
+
+  describe('sendSingleChunk', function () {
+    beforeEach(function () {
+      this.plugin.sendData = (buffer: Buffer) => Promise.resolve(IlpPacket.serializeIlpFulfill({
+        fulfillment: Buffer.from('0de77e566fd39f0b9ea26bb10e4b6aa3ff813eee37758caf0c1adfd69edd572b', 'hex'),
+        data: encoding.serializePskPacket(SHARED_SECRET, {
+          type: 2,
+          paymentId: PAYMENT_ID,
+          sequence: 0,
+          paymentAmount: MAX_UINT64,
+          chunkAmount: new BigNumber(55),
+          applicationData: Buffer.alloc(0)
+        })
+      }))
+    })
+
+    it('sends an IlpPrepare with the given source amount and minimum destination amount supplied as the chunkAmount', async function () {
+      const spy = sinon.spy(this.plugin, 'sendData')
+
+      await sender.sendSingleChunk(this.plugin, {
+        sharedSecret: SHARED_SECRET,
+        destinationAccount: 'test.receiver',
+        sourceAmount: '100',
+        minDestinationAmount: '50'
+      })
+
+      assert(spy.calledWith(IlpPacket.serializeIlpPrepare({
+        destination: 'test.receiver',
+        amount: '100',
+        executionCondition: Buffer.from('dbe5899c51056feae0d6b42dc8677f40a5452ca03512f058d95132c2cf5b7bf8', 'hex'),
+        expiresAt: new Date(2000),
+        data: encoding.serializePskPacket(SHARED_SECRET, {
+          type: 1,
+          paymentId: PAYMENT_ID,
+          sequence: 0,
+          paymentAmount: MAX_UINT64,
+          chunkAmount: new BigNumber(50)
+        })
+      })))
+
+      spy.restore()
+    })
+
+    it('returns the amount that arrived at the destination', async function () {
+      const result = await sender.sendSingleChunk(this.plugin, {
+        sharedSecret: SHARED_SECRET,
+        destinationAccount: 'test.receiver',
+        sourceAmount: '100',
+        minDestinationAmount: '50'
+      })
+
+      assert.equal(result.id, PAYMENT_ID.toString('hex'))
+      assert.equal(result.sourceAmount, '100')
+      assert.equal(result.destinationAmount, '55')
+      assert.equal(result.chunksFulfilled, 1)
+    })
+
+    it('rejects if it receives an invalid fulfillment', async function () {
+      this.plugin.sendData = (buffer: Buffer) => Promise.resolve(IlpPacket.serializeIlpFulfill({
+        fulfillment: Buffer.alloc(32),
+        data: Buffer.alloc(0)
+      }))
+
+      try {
+        await sender.sendSingleChunk(this.plugin, {
+          sharedSecret: SHARED_SECRET,
+          destinationAccount: 'test.receiver',
+          sourceAmount: '100',
+          minDestinationAmount: '50'
+        })
+      } catch (err) {
+        assert.include(err.message, 'Received invalid fulfillment')
+        return
+      }
+      assert(false, 'should not get here')
+    })
+
+    it('rejects if the prepare is rejected by the receiver', async function () {
+      this.plugin.sendData = (buffer: Buffer) => Promise.resolve(IlpPacket.serializeIlpReject({
+        code: 'F99',
+        message: '',
+        triggeredBy: 'test.receiver',
+        data: encoding.serializePskPacket(SHARED_SECRET, {
+          type: 3,
+          paymentId: PAYMENT_ID,
+          sequence: 0,
+          paymentAmount: MAX_UINT64,
+          chunkAmount: new BigNumber('45'),
+          applicationData: Buffer.alloc(0)
+        })
+      }))
+
+      try {
+        await sender.sendSingleChunk(this.plugin, {
+          sharedSecret: SHARED_SECRET,
+          destinationAccount: 'test.receiver',
+          sourceAmount: '100',
+          minDestinationAmount: '50'
+        })
+      } catch (err) {
+        assert.include(err.message, 'Error sending payment')
+        // assert.include(err.message, 'Receiver says too little arrived. actual: 45, expected: 50')
+        return
+      }
+      assert(false, 'should not get here')
+    })
+
+    it('rejects if it gets a non-F99 error', async function () {
+      this.plugin.sendData = (buffer: Buffer) => Promise.resolve(IlpPacket.serializeIlpReject({
+        code: 'T02',
+        message: 'ledger unreachable',
+        triggeredBy: 'test.connector',
+        data: Buffer.alloc(0)
+      }))
+
+      try {
+        await sender.sendSingleChunk(this.plugin, {
+          sharedSecret: SHARED_SECRET,
+          destinationAccount: 'test.receiver',
+          sourceAmount: '100',
+          minDestinationAmount: '50'
+        })
+      } catch (err) {
+        assert.include(err.message, 'Error sending payment')
+        // assert.include(err.message, 'Receiver says too little arrived. actual: 45, expected: 50')
+        return
+      }
+      assert(false, 'should not get here')
     })
   })
 })

@@ -254,26 +254,26 @@ export async function sendSingleChunk (plugin: any, opts: SendSingleChunkOpts): 
   }
 }
 
-export interface SendOpts {
+export interface SendSourceOpts {
   sourceAmount: BigNumber | string | number,
   sharedSecret: Buffer,
   destinationAccount: string,
   id?: Buffer
 }
 
-export async function send (plugin: any, opts: SendOpts): Promise<PaymentResult> {
+export async function sendSourceAmount (plugin: any, opts: SendSourceOpts): Promise<PaymentResult> {
   assert(opts.sourceAmount, 'sourceAmount is required')
   return sendChunkedPayment(plugin, opts)
 }
 
-export interface DeliverOpts {
+export interface SendDestinationOpts {
   destinationAmount: BigNumber | string | number,
   sharedSecret: Buffer,
   destinationAccount: string,
   id?: Buffer
 }
 
-export async function deliver (plugin: any, opts: DeliverOpts): Promise<PaymentResult> {
+export async function sendDestinationAmount (plugin: any, opts: SendDestinationOpts): Promise<PaymentResult> {
   assert(opts.destinationAmount, 'destinationAmount is required')
   return sendChunkedPayment(plugin, opts)
 }

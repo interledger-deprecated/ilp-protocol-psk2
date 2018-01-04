@@ -153,7 +153,7 @@ export interface SendSingleChunkOpts {
   id?: Buffer
 }
 
-export interface PaymentResult {
+export interface SendResult {
   id: string,
   sourceAmount: string,
   destinationAmount: string,
@@ -161,7 +161,7 @@ export interface PaymentResult {
   chunksRejected: number
 }
 
-export async function sendSingleChunk (plugin: any, opts: SendSingleChunkOpts): Promise<PaymentResult> {
+export async function sendSingleChunk (plugin: any, opts: SendSingleChunkOpts): Promise<SendResult> {
   plugin = convert(plugin)
   const debug = Debug('ilp-psk2:singleChunk')
   const {
@@ -261,7 +261,7 @@ export interface SendSourceOpts {
   id?: Buffer
 }
 
-export async function sendSourceAmount (plugin: any, opts: SendSourceOpts): Promise<PaymentResult> {
+export async function sendSourceAmount (plugin: any, opts: SendSourceOpts): Promise<SendResult> {
   assert(opts.sourceAmount, 'sourceAmount is required')
   return sendChunkedPayment(plugin, opts)
 }
@@ -273,7 +273,7 @@ export interface SendDestinationOpts {
   id?: Buffer
 }
 
-export async function sendDestinationAmount (plugin: any, opts: SendDestinationOpts): Promise<PaymentResult> {
+export async function sendDestinationAmount (plugin: any, opts: SendDestinationOpts): Promise<SendResult> {
   assert(opts.destinationAmount, 'destinationAmount is required')
   return sendChunkedPayment(plugin, opts)
 }
@@ -285,8 +285,9 @@ interface ChunkedPaymentOpts {
   destinationAmount?: BigNumber | string | number,
   id?: Buffer
 }
+
 // TODO accept user data also
-async function sendChunkedPayment (plugin: any, opts: ChunkedPaymentOpts): Promise<PaymentResult> {
+async function sendChunkedPayment (plugin: any, opts: ChunkedPaymentOpts): Promise<SendResult> {
   const {
     sharedSecret,
     destinationAccount,

@@ -28,7 +28,8 @@ mock('crypto', {
     }
   }
 })
-
+mock.reRequire('../src/encoding')
+mock.reRequire('../src/sender')
 import * as sender from '../src/sender'
 import * as encoding from '../src/encoding'
 

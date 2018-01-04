@@ -38,7 +38,7 @@ export interface FulfillmentInfo {
   ilp: Buffer
 }
 
-export interface PaymentResult {
+export interface PaymentReceived {
   id: string,
   receivedAmount: string,
   expectedAmount: string,
@@ -171,14 +171,16 @@ export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback
           callback({
             paymentId,
             expectedAmount: record.expected.toString(10),
-            accept: async () => {
+            accept: async (): Promise<PaymentReceived> => {
               resolve()
               // The promise returned to the receiver will be fulfilled
               // when the whole payment is finished
-              return new Promise((resolve, reject) => {
+              const payment = await new Promise((resolve, reject) => {
                 record.finishedPromise = { resolve, reject }
                 // TODO should the payment timeout after some time?
-              })
+              }) as PaymentReceived
+
+              return payment
             },
             reject: reject
             // TODO include first chunk data

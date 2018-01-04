@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "target": "es2015",
-    "outDir": "dist",
     "module": "commonjs",
     "declaration": true,
     "noImplicitAny": true,
@@ -12,11 +11,9 @@
     "strictNullChecks": true,
     "suppressImplicitAnyIndexErrors": true
   },
-  "include": [
-    "./src/**/*"
-  ],
   "types": [
     "ilp-packet",
     "ilp-compat-plugin"
-  ]
+  ],
+  "compileOnSave": true
 }

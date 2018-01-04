@@ -3,7 +3,7 @@ import * as crypto from 'crypto'
 import * as Debug from 'debug'
 import BigNumber from 'bignumber.js'
 import * as IlpPacket from 'ilp-packet'
-import convert from 'ilp-compat-plugin'
+import { default as convert, PluginV1, PluginV2 } from 'ilp-compat-plugin'
 import * as constants from './constants'
 import { serializePskPacket, deserializePskPacket, PskPacket } from './encoding'
 import { dataToFulfillment, fulfillmentToCondition } from './condition'
@@ -13,9 +13,15 @@ const STARTING_TRANSFER_AMOUNT = 1000
 const TRANSFER_INCREASE = 1.1
 const TRANSFER_DECREASE = 0.5
 
-export interface QuoteOpts {
-  sourceAmount?: BigNumber | string | number,
-  destinationAmount?: BigNumber | string | number,
+export interface QuoteSourceOpts {
+  sourceAmount: BigNumber | string | number,
+  sharedSecret: Buffer,
+  destinationAccount: string,
+  id?: Buffer
+}
+
+export interface QuoteDestinationOpts {
+  destinationAmount: BigNumber | string | number,
   sharedSecret: Buffer,
   destinationAccount: string,
   id?: Buffer
@@ -27,21 +33,48 @@ export interface QuoteResult {
   destinationAmount: string
 }
 
-export async function quote (plugin: any, opts: QuoteOpts): Promise<QuoteResult> {
-  plugin = convert(plugin)
-  const {
+export async function quoteSourceAmount (plugin: PluginV2 | PluginV1, opts: QuoteSourceOpts) {
+  let {
     sourceAmount,
+    sharedSecret,
+    destinationAccount,
+    id = crypto.randomBytes(16)
+  } = opts
+  sourceAmount = new BigNumber(sourceAmount)
+  assert(sourceAmount.isInteger(), 'sourceAmount must be an integer')
+  assert(sharedSecret, 'sharedSecret is required')
+  assert(sharedSecret.length >= 32, 'sharedSecret must be at least 32 bytes')
+  assert(destinationAccount && typeof destinationAccount === 'string', 'destinationAccount is required')
+  assert((Buffer.isBuffer(id) && id.length === 16), 'id must be a 16-byte buffer')
+  return quote(plugin, sharedSecret, id, destinationAccount, sourceAmount, undefined)
+}
+
+export async function quoteDestinationAmount (plugin: PluginV2 | PluginV1, opts: QuoteDestinationOpts) {
+  let {
     destinationAmount,
     sharedSecret,
     destinationAccount,
     id = crypto.randomBytes(16)
   } = opts
-  const debug = Debug('ilp-psk2:quote')
+  destinationAmount = new BigNumber(destinationAmount)
+  assert(destinationAmount.isInteger(), 'destinationAmount must be an integer')
   assert(sharedSecret, 'sharedSecret is required')
   assert(sharedSecret.length >= 32, 'sharedSecret must be at least 32 bytes')
-  assert(sourceAmount || destinationAmount, 'either sourceAmount or destinationAmount is required')
-  assert(!sourceAmount || !destinationAmount, 'cannot supply both sourceAmount and destinationAmount')
-  assert(!id || (Buffer.isBuffer(id) && id.length === 16), 'id must be a 16-byte buffer if supplied')
+  assert(destinationAccount && typeof destinationAccount === 'string', 'destinationAccount is required')
+  assert((Buffer.isBuffer(id) && id.length === 16), 'id must be a 16-byte buffer if supplied')
+  return quote(plugin, sharedSecret, id, destinationAccount, undefined, destinationAmount)
+}
+
+async function quote (
+  plugin: PluginV2 | PluginV1,
+  sharedSecret: Buffer,
+  id: Buffer,
+  destinationAccount: string,
+  sourceAmount?: BigNumber,
+  destinationAmount?: BigNumber
+): Promise<QuoteResult> {
+  plugin = convert(plugin)
+  const debug = Debug('ilp-psk2:quote')
 
   const sequence = 0
   const data = serializePskPacket(
@@ -98,12 +131,12 @@ export async function quote (plugin: any, opts: QuoteOpts): Promise<QuoteResult>
     quotedSourceAmount = new BigNumber(sourceAmount)
     quotedDestinationAmount = amountArrived
   } else {
-    quotedSourceAmount = new BigNumber(destinationAmount || 0)
+    quotedSourceAmount = new BigNumber(destinationAmount as BigNumber)
       .div(amountArrived)
       .times(STARTING_TRANSFER_AMOUNT)
       .round(0, BigNumber.ROUND_UP)
     // TODO should we always round up or just half up?
-    quotedDestinationAmount = new BigNumber(destinationAmount || 0)
+    quotedDestinationAmount = new BigNumber(destinationAmount as BigNumber)
   }
   return {
     id: id.toString('hex'),

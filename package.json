@@ -2,11 +2,12 @@
   "name": "ilp-psk2",
   "version": "0.1.0",
   "description": "Implementation of the ILP Pre-Shared Key V2 Transport Protocol",
-  "main": "dist/index.js",
+  "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "tslint \"src/**/*.ts\"",
-    "build": "rm -rf dist ; tsc"
+    "build": "tsc",
+    "pretest": "tsc",
+    "test": "nyc mocha",
+    "lint": "tslint"
   },
   "repository": {
     "type": "git",
@@ -31,17 +32,48 @@
     "debug": "^3.1.0",
     "ilp-compat-plugin": "^2.0.3",
     "ilp-packet": "^2.1.2",
+    "ilp-protocol-ildcp": "^1.0.0",
     "long": "^3.2.0",
     "oer-utils": "^1.3.2"
   },
   "devDependencies": {
     "@types/bignumber.js": "^4.0.3",
+    "@types/chai": "^4.0.10",
     "@types/debug": "0.0.30",
     "@types/long": "^3.0.32",
+    "@types/mocha": "^2.2.45",
+    "@types/mock-require": "^2.0.0",
     "@types/node": "^8.5.2",
+    "@types/sinon": "^4.1.2",
+    "chai": "^4.1.2",
     "ilp-plugin-payment-channel-framework": "^1.3.5",
+    "mocha": "^4.1.0",
+    "mocha-typescript": "^1.1.12",
+    "mock-require": "^2.0.2",
+    "nyc": "^11.4.1",
+    "sinon": "^4.1.3",
+    "source-map-support": "^0.5.0",
+    "ts-node": "^4.1.0",
     "tslint": "^5.8.0",
     "tslint-config-standard": "^7.0.0",
     "typescript": "^2.6.2"
+  },
+  "nyc": {
+    "check-coverage": true,
+    "lines": 80,
+    "statements": 80,
+    "functions": 80,
+    "branches": 80,
+    "include": [
+      "src/**/*.js"
+    ],
+    "exclude": [
+      "test/**/*.js"
+    ],
+    "reporter": [
+      "lcov",
+      "text-summary"
+    ],
+    "all": true
   }
 }

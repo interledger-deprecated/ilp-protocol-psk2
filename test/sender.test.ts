@@ -13,6 +13,7 @@ const QUOTE_CONDITION = Buffer.from('a4d735b6bd09ebbc971b817384e8fa1d110b0df130c
 const NONCE = Buffer.from('6c93ab43f2b70ac9a0d3844f', 'hex')
 const MAX_UINT64 = new BigNumber('18446744073709551615')
 
+mock.stopAll()
 mock('crypto', {
   ...crypto,
   randomBytes: function (numBytes: number): Buffer {
@@ -53,7 +54,7 @@ describe('Sender', function () {
           type: 3,
           sequence: 0,
           paymentId: PAYMENT_ID,
-          paymentAmount: MAX_UINT64,
+          paymentAmount: new BigNumber(0),
           chunkAmount: new BigNumber('5')
         })
       }))
@@ -329,3 +330,6 @@ describe('Sender', function () {
     })
   })
 })
+
+mock.stopAll()
+mock.reRequire('crypto')

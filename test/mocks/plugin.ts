@@ -9,38 +9,34 @@ export interface MoneyHandler {
   (amount: string): Promise<void>
 }
 
-const defaultDataHandler = (data: Buffer) => Promise.resolve(IlpPacket.serializeIlpReject({
-  code: 'F02', // Unreachable
-  triggeredBy: 'example.mock-plugin',
-  message: 'No data handler registered',
-  data: Buffer.alloc(0)
-}))
-const defaultMoneyHandler = (amount: string) => Promise.resolve()
 
 export default class MockPlugin extends EventEmitter {
   static readonly version = 2
   public dataHandler: DataHandler
   public moneyHandler: MoneyHandler
   public exchangeRate: number
+  public connected: boolean
 
   constructor (exchangeRate: number) {
     super()
 
-    this.dataHandler = defaultDataHandler
-    this.moneyHandler = defaultMoneyHandler
+    this.dataHandler = this.defaultDataHandler
+    this.moneyHandler = this.defaultMoneyHandler
     this.exchangeRate = exchangeRate
   }
 
   async connect () {
+    this.connected = true
     return Promise.resolve()
   }
 
   async disconnect () {
+    this.connected = false
     return Promise.resolve()
   }
 
   isConnected () {
-    return true
+    return this.connected
   }
 
   async sendData (data: Buffer): Promise<Buffer> {
@@ -65,10 +61,27 @@ export default class MockPlugin extends EventEmitter {
   }
 
   deregisterDataHandler (): void {
-    this.dataHandler = defaultDataHandler
+    this.dataHandler = this.defaultDataHandler
   }
 
   registerMoneyHandler (handler: MoneyHandler): void {
     this.moneyHandler = handler
+  }
+
+  deregisterMoneyHandler (): void {
+    this.moneyHandler = this.defaultMoneyHandler
+  }
+
+  async defaultDataHandler (data: Buffer): Promise<Buffer> {
+    return IlpPacket.serializeIlpReject({
+      code: 'F02', // Unreachable
+      triggeredBy: 'example.mock-plugin',
+      message: 'No data handler registered',
+      data: Buffer.alloc(0)
+    })
+  }
+
+  async defaultMoneyHandler (amount: string): Promise<void> {
+    return
   }
 }

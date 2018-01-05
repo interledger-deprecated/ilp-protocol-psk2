@@ -11,8 +11,8 @@ describe('Exports', function () {
     assert.typeOf(PSK2.quoteDestinationAmount, 'function')
     assert.typeOf(PSK2.quoteSourceAmount, 'function')
 
-    assert.typeOf(PSK2.listen, 'function')
-    assert.typeOf(PSK2.generateParams, 'function')
+    assert.typeOf(PSK2.Receiver, 'function')
+    assert.typeOf(PSK2.createReceiver, 'function')
   })
 
   it('exports the constants and encoding functions', function () {

@@ -59,32 +59,45 @@ export class Receiver {
   protected paymentHandler: PaymentHandler
   protected address: string
   protected payments: Object
+  protected connected: boolean
 
   constructor (plugin: PluginV2 | PluginV1, secret: Buffer) {
     this.plugin = convertToV2Plugin(plugin)
     assert(secret.length >= 32, 'secret must be at least 32 bytes')
     this.secret = secret
+    // TODO is the receiver ID necessary if ILDCP will return different addresses for each listener?
     this.receiverId = getReceiverId(this.secret)
     this.paymentHandler = this.defaultPaymentHandler
     this.address = ''
     this.payments = {}
+    this.connected = false
   }
 
   async connect (): Promise<void> {
-    debug('connect')
+    debug('connect called')
     await this.plugin.connect()
     // TODO refetch address if we're connected for long enough
     this.address = (await ILDCP.fetch(this.plugin.sendData.bind(this.plugin))).clientAddress
-    this.plugin.registerDataHandler(this.handleData.bind(this.plugin))
+    this.plugin.registerDataHandler(this.handleData)
+    this.connected = true
+    debug('connected')
   }
 
   async disconnect (): Promise<void> {
-    debug('disconnect')
+    debug('disconnect called')
+    this.connected = false
     this.plugin.deregisterDataHandler()
     await this.plugin.disconnect()
+    debug('disconnected')
+  }
+
+  isConnected (): boolean {
+    this.connected = this.connected && this.plugin.isConnected()
+    return this.connected
   }
 
   registerPaymentHandler (handler: PaymentHandler): void {
+    debug('registered payment handler')
     assert(typeof handler === 'function', 'payment handler must be a function')
     this.paymentHandler = handler
   }
@@ -94,6 +107,7 @@ export class Receiver {
   }
 
   generateAddressAndSecret (): { destinationAccount: string, sharedSecret: Buffer } {
+    assert(this.connected, 'Receiver must be connected')
     const token = crypto.randomBytes(TOKEN_LENGTH)
     return {
       sharedSecret: generateSharedSecret(this.secret, token),
@@ -102,8 +116,8 @@ export class Receiver {
   }
 
   protected async defaultPaymentHandler (params: PaymentHandlerParams): Promise<void> {
-    debug(`no handler registered, rejecting payment ${params.paymentId}`)
-    return params.reject('no payment handler registered')
+    debug(`Receiver has no handler registered, rejecting payment ${params.paymentId}`)
+    return params.reject('Receiver has no payment handler registered')
   }
 
   protected reject (code: string, message?: string, data?: Buffer) {
@@ -115,7 +129,8 @@ export class Receiver {
     })
   }
 
-  protected async handleData (data: Buffer): Promise<Buffer> {
+  // This is an arrow function so we don't need to use bind when setting it on the plugin
+  protected handleData = async (data: Buffer): Promise<Buffer> => {
     let prepare: IlpPacket.IlpPrepare
     let sharedSecret: Buffer
 
@@ -192,6 +207,7 @@ export class Receiver {
       try {
         await new Promise(async (resolve, reject) => {
           await this.paymentHandler({
+            // TODO include first chunk data
             paymentId,
             expectedAmount: record.expected.toString(10),
             accept: async (): Promise<PaymentReceived> => {
@@ -205,8 +221,12 @@ export class Receiver {
 
               return payment
             },
-            reject: reject
-            // TODO include first chunk data
+            reject: (message: string) => {
+              debug('receiver rejected payment with message:', message)
+              record.acceptedByReceiver = false
+              record.rejectionMessage = message
+              resolve()
+            }
           })
 
           // If the user didn't call the accept function, reject it
@@ -220,6 +240,7 @@ export class Receiver {
 
     // Reject the chunk if the receiver didn't want the payment
     if (record.acceptedByReceiver === false) {
+      debug(`rejecting chunk because payment ${paymentId} was rejected by receiver with message: ${record.rejectionMessage}`)
       record.chunksRejected += 1
       return this.reject('F99', record.rejectionMessage)
     }

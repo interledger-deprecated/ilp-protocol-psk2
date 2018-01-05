@@ -13,14 +13,14 @@ const STARTING_TRANSFER_AMOUNT = 1000
 const TRANSFER_INCREASE = 1.1
 const TRANSFER_DECREASE = 0.5
 
-export interface QuoteSourceOpts {
+export interface QuoteSourceParams {
   sourceAmount: BigNumber | string | number,
   sharedSecret: Buffer,
   destinationAccount: string,
   id?: Buffer
 }
 
-export interface QuoteDestinationOpts {
+export interface QuoteDestinationParams {
   destinationAmount: BigNumber | string | number,
   sharedSecret: Buffer,
   destinationAccount: string,
@@ -33,13 +33,13 @@ export interface QuoteResult {
   destinationAmount: string
 }
 
-export async function quoteSourceAmount (plugin: PluginV2 | PluginV1, opts: QuoteSourceOpts) {
+export async function quoteSourceAmount (plugin: PluginV2 | PluginV1, params: QuoteSourceParams) {
   let {
     sourceAmount,
     sharedSecret,
     destinationAccount,
     id = crypto.randomBytes(16)
-  } = opts
+  } = params
   sourceAmount = new BigNumber(sourceAmount)
   assert(sourceAmount.isInteger(), 'sourceAmount must be an integer')
   assert(sharedSecret, 'sharedSecret is required')
@@ -49,13 +49,13 @@ export async function quoteSourceAmount (plugin: PluginV2 | PluginV1, opts: Quot
   return quote(plugin, sharedSecret, id, destinationAccount, sourceAmount, undefined)
 }
 
-export async function quoteDestinationAmount (plugin: PluginV2 | PluginV1, opts: QuoteDestinationOpts) {
+export async function quoteDestinationAmount (plugin: PluginV2 | PluginV1, params: QuoteDestinationParams) {
   let {
     destinationAmount,
     sharedSecret,
     destinationAccount,
     id = crypto.randomBytes(16)
-  } = opts
+  } = params
   destinationAmount = new BigNumber(destinationAmount)
   assert(destinationAmount.isInteger(), 'destinationAmount must be an integer')
   assert(sharedSecret, 'sharedSecret is required')
@@ -145,7 +145,7 @@ async function quote (
   }
 }
 
-export interface SendSingleChunkOpts {
+export interface SendSingleChunkParams {
   sourceAmount: BigNumber | string | number,
   sharedSecret: Buffer,
   destinationAccount: string,
@@ -161,7 +161,7 @@ export interface SendResult {
   chunksRejected: number
 }
 
-export async function sendSingleChunk (plugin: any, opts: SendSingleChunkOpts): Promise<SendResult> {
+export async function sendSingleChunk (plugin: any, params: SendSingleChunkParams): Promise<SendResult> {
   plugin = convert(plugin)
   const debug = Debug('ilp-psk2:singleChunk')
   const {
@@ -170,7 +170,7 @@ export async function sendSingleChunk (plugin: any, opts: SendSingleChunkOpts): 
     destinationAccount,
     minDestinationAmount = 0,
     id = crypto.randomBytes(16)
-  } = opts
+  } = params
 
   assert(sharedSecret, 'sharedSecret is required')
   assert(sharedSecret.length >= 32, 'sharedSecret must be at least 32 bytes')
@@ -254,31 +254,31 @@ export async function sendSingleChunk (plugin: any, opts: SendSingleChunkOpts): 
   }
 }
 
-export interface SendSourceOpts {
+export interface SendSourceParams {
   sourceAmount: BigNumber | string | number,
   sharedSecret: Buffer,
   destinationAccount: string,
   id?: Buffer
 }
 
-export async function sendSourceAmount (plugin: any, opts: SendSourceOpts): Promise<SendResult> {
-  assert(opts.sourceAmount, 'sourceAmount is required')
-  return sendChunkedPayment(plugin, opts)
+export async function sendSourceAmount (plugin: any, params: SendSourceParams): Promise<SendResult> {
+  assert(params.sourceAmount, 'sourceAmount is required')
+  return sendChunkedPayment(plugin, params)
 }
 
-export interface SendDestinationOpts {
+export interface SendDestinationParams {
   destinationAmount: BigNumber | string | number,
   sharedSecret: Buffer,
   destinationAccount: string,
   id?: Buffer
 }
 
-export async function sendDestinationAmount (plugin: any, opts: SendDestinationOpts): Promise<SendResult> {
-  assert(opts.destinationAmount, 'destinationAmount is required')
-  return sendChunkedPayment(plugin, opts)
+export async function sendDestinationAmount (plugin: any, params: SendDestinationParams): Promise<SendResult> {
+  assert(params.destinationAmount, 'destinationAmount is required')
+  return sendChunkedPayment(plugin, params)
 }
 
-interface ChunkedPaymentOpts {
+interface ChunkedPaymentParams {
   sharedSecret: Buffer,
   destinationAccount: string,
   sourceAmount?: BigNumber | string | number,
@@ -287,14 +287,14 @@ interface ChunkedPaymentOpts {
 }
 
 // TODO accept user data also
-async function sendChunkedPayment (plugin: any, opts: ChunkedPaymentOpts): Promise<SendResult> {
+async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): Promise<SendResult> {
   const {
     sharedSecret,
     destinationAccount,
     sourceAmount,
     destinationAmount,
     id = crypto.randomBytes(16)
-  } = opts
+  } = params
   assert(sharedSecret, 'sharedSecret is required')
   assert(sharedSecret.length >= 32, 'sharedSecret must be at least 32 bytes')
   assert(destinationAccount, 'destinationAccount is required')

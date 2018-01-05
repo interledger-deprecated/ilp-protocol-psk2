@@ -19,10 +19,10 @@ const TOKEN_LENGTH = 18
 const SHARED_SECRET_LENGTH = 32
 
 export interface PaymentHandler {
-  (opts: PaymentHandlerOpts): Promise<void>
+  (params: PaymentHandlerParams): Promise<void>
 }
 
-export interface PaymentHandlerOpts {
+export interface PaymentHandlerParams {
   paymentId: string,
   expectedAmount: string,
   accept: () => Promise<PaymentReceived>,
@@ -46,7 +46,6 @@ export async function createReceiver (opts: ReceiverOpts): Promise<Receiver> {
   if (!opts.secret) {
     opts.secret = crypto.randomBytes(32)
   }
-  assert(typeof opts.paymentHandler === 'function', 'review callback must be a function')
   const receiver = new Receiver(opts.plugin, opts.secret)
   receiver.registerPaymentHandler(opts.paymentHandler)
   await receiver.connect()
@@ -74,6 +73,7 @@ export class Receiver {
   async connect (): Promise<void> {
     debug('connect')
     await this.plugin.connect()
+    // TODO refetch address if we're connected for long enough
     this.address = (await ILDCP.fetch(this.plugin.sendData.bind(this.plugin))).clientAddress
     this.plugin.registerDataHandler(this.handleData.bind(this.plugin))
   }
@@ -85,6 +85,7 @@ export class Receiver {
   }
 
   registerPaymentHandler (handler: PaymentHandler): void {
+    assert(typeof handler === 'function', 'payment handler must be a function')
     this.paymentHandler = handler
   }
 
@@ -100,7 +101,7 @@ export class Receiver {
     }
   }
 
-  protected async defaultPaymentHandler (params: PaymentHandlerOpts): Promise<void> {
+  protected async defaultPaymentHandler (params: PaymentHandlerParams): Promise<void> {
     debug(`no handler registered, rejecting payment ${params.paymentId}`)
     return params.reject('no payment handler registered')
   }

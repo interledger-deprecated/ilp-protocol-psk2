@@ -204,14 +204,22 @@ export class Receiver {
 
     // Check if the receiver wants to accept the payment
     if (record.acceptedByReceiver === null) {
-      try {
-        await new Promise(async (resolve, reject) => {
-          await this.paymentHandler({
+      // This promise resolves when the user has either accepted or rejected the payment
+      await new Promise(async (resolve, reject) => {
+        // Reject the payment if:
+        // a) the user explicity calls reject
+        // b) if they don't call accept
+        // c) if there is an error thrown in the payment handler
+        try {
+          await Promise.resolve(this.paymentHandler({
             // TODO include first chunk data
             paymentId,
             expectedAmount: record.expected.toString(10),
             accept: async (): Promise<PaymentReceived> => {
+              // Resolve the above promise so that we actually fulfill the incoming chunk
+              record.acceptedByReceiver = true
               resolve()
+
               // The promise returned to the receiver will be fulfilled
               // when the whole payment is finished
               const payment = await new Promise((resolve, reject) => {
@@ -225,17 +233,21 @@ export class Receiver {
               debug('receiver rejected payment with message:', message)
               record.acceptedByReceiver = false
               record.rejectionMessage = message
-              resolve()
             }
-          })
+          }))
 
           // If the user didn't call the accept function, reject it
-          reject('receiver did not accept payment')
-        })
-      } catch (err) {
-        record.acceptedByReceiver = false
-        record.rejectionMessage = err && err.message
-      }
+          if (record.acceptedByReceiver === null) {
+            record.acceptedByReceiver = false
+            record.rejectionMessage = 'receiver did not accept the payment'
+          }
+        } catch (err) {
+          debug('error thrown in payment handler:', err)
+          record.acceptedByReceiver = false
+          record.rejectionMessage = err && err.message
+        }
+        resolve()
+      })
     }
 
     // Reject the chunk if the receiver didn't want the payment

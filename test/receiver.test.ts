@@ -114,7 +114,7 @@ describe('Receiver', function () {
       beforeEach(function () {
         const { destinationAccount, sharedSecret } = this.receiver.generateAddressAndSecret()
         const pskRequest = encoding.serializePskPacket(sharedSecret, {
-          type: 0,
+          type: 1,
           paymentId: Buffer.alloc(16),
           sequence: 0,
           paymentAmount: MAX_UINT64,
@@ -152,6 +152,36 @@ describe('Receiver', function () {
         assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
           code: 'F99',
           message: 'unwanted',
+          triggeredBy: 'test.receiver',
+          data: Buffer.alloc(0)
+        })
+      })
+
+      it('should reject payments if there is an error thrown in the payment handler', async function () {
+        this.receiver.registerPaymentHandler(async (params: PaymentHandlerParams) => {
+          throw new Error('some error')
+        })
+        const response = await this.plugin.sendData(this.prepare)
+
+        assert.equal(response[0], IlpPacket.Type.TYPE_ILP_REJECT)
+        assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
+          code: 'F99',
+          message: 'some error',
+          triggeredBy: 'test.receiver',
+          data: Buffer.alloc(0)
+        })
+      })
+
+      it('should reject payments if the payment handler finishes without accept being called', async function () {
+        this.receiver.registerPaymentHandler(async (params: PaymentHandlerParams) => {
+          return
+        })
+        const response = await this.plugin.sendData(this.prepare)
+
+        assert.equal(response[0], IlpPacket.Type.TYPE_ILP_REJECT)
+        assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
+          code: 'F99',
+          message: 'receiver did not accept the payment',
           triggeredBy: 'test.receiver',
           data: Buffer.alloc(0)
         })

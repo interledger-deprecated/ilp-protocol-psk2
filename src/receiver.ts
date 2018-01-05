@@ -10,6 +10,7 @@ import IlpPacket = require('ilp-packet')
 import * as constants from './constants'
 import { serializePskPacket, deserializePskPacket, PskPacket } from './encoding'
 import { dataToFulfillment, fulfillmentToCondition } from './condition'
+import * as ILDCP from 'ilp-protocol-ildcp'
 
 const RECEIVER_ID_STRING = 'ilp_psk2_receiver_id'
 const PSK_GENERATION_STRING = 'ilp_psk2_generation'
@@ -17,25 +18,15 @@ const RECEIVER_ID_LENGTH = 8
 const TOKEN_LENGTH = 18
 const SHARED_SECRET_LENGTH = 32
 
-export interface ListenOpts {
-  receiverSecret: Buffer,
-  acceptableOverpaymentMultiple?: number
+export interface PaymentHandler {
+  (opts: PaymentHandlerOpts): Promise<void>
 }
 
-export interface ReviewCallback {
-  (opts: ReviewCallbackOpts): Promise<boolean>
-}
-
-export interface ReviewCallbackOpts {
+export interface PaymentHandlerOpts {
   paymentId: string,
   expectedAmount: string,
-  accept: () => Promise<{}>,
-  reject: () => void
-}
-
-export interface FulfillmentInfo {
-  fulfillment: Buffer,
-  ilp: Buffer
+  accept: () => Promise<PaymentReceived>,
+  reject: (message: string) => void
 }
 
 export interface PaymentReceived {
@@ -45,49 +36,98 @@ export interface PaymentReceived {
   chunksFulfilled: number
 }
 
-export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback: ReviewCallback): () => void {
-  // TODO add option to notify receiver about every incoming chunk?
-  plugin = convertToV2Plugin(plugin)
-  const {
-    receiverSecret,
-    acceptableOverpaymentMultiple = 1.01
-  } = opts
+export interface ReceiverOpts {
+  plugin: PluginV2 | PluginV1,
+  paymentHandler: PaymentHandler,
+  secret?: Buffer
+}
 
-  assert(receiverSecret, 'receiverSecret is required')
-  assert(receiverSecret.length >= 32, 'receiverSecret must be at least 32 bytes')
-  assert(typeof callback === 'function', 'review callback must be a function')
+export async function createReceiver (opts: ReceiverOpts): Promise<Receiver> {
+  if (!opts.secret) {
+    opts.secret = crypto.randomBytes(32)
+  }
+  assert(typeof opts.paymentHandler === 'function', 'review callback must be a function')
+  const receiver = new Receiver(opts.plugin, opts.secret)
+  receiver.registerPaymentHandler(opts.paymentHandler)
+  await receiver.connect()
+  return receiver
+}
 
-  const receiverId = getReceiverId(receiverSecret)
+export class Receiver {
+  protected plugin: PluginV2
+  protected secret: Buffer
+  protected receiverId: string
+  protected paymentHandler: PaymentHandler
+  protected address: string
+  protected payments: Object
 
-  const payments = {}
-
-  plugin.registerDataHandler(handleData)
-
-  function stopListening (): void {
-    debug('stop listening')
-    const p = plugin as PluginV2
-    p.deregisterDataHandler()
+  constructor (plugin: PluginV2 | PluginV1, secret: Buffer) {
+    this.plugin = convertToV2Plugin(plugin)
+    assert(secret.length >= 32, 'secret must be at least 32 bytes')
+    this.secret = secret
+    this.receiverId = getReceiverId(this.secret)
+    this.paymentHandler = this.defaultPaymentHandler
+    this.address = ''
+    this.payments = {}
   }
 
-  async function handleData (data: Buffer): Promise<Buffer> {
+  async connect (): Promise<void> {
+    debug('connect')
+    await this.plugin.connect()
+    this.address = (await ILDCP.fetch(this.plugin.sendData.bind(this.plugin))).clientAddress
+    this.plugin.registerDataHandler(this.handleData.bind(this.plugin))
+  }
+
+  async disconnect (): Promise<void> {
+    debug('disconnect')
+    this.plugin.deregisterDataHandler()
+    await this.plugin.disconnect()
+  }
+
+  registerPaymentHandler (handler: PaymentHandler): void {
+    this.paymentHandler = handler
+  }
+
+  deregisterPaymentHandler (): void {
+    this.paymentHandler = this.defaultPaymentHandler
+  }
+
+  generateAddressAndSecret (): { destinationAccount: string, sharedSecret: Buffer } {
+    const token = crypto.randomBytes(TOKEN_LENGTH)
+    return {
+      sharedSecret: generateSharedSecret(this.secret, token),
+      destinationAccount: `${this.address}.${this.receiverId}.${base64url(token)}`
+    }
+  }
+
+  protected async defaultPaymentHandler (params: PaymentHandlerOpts): Promise<void> {
+    debug(`no handler registered, rejecting payment ${params.paymentId}`)
+    return params.reject('no payment handler registered')
+  }
+
+  protected reject (code: string, message?: string, data?: Buffer) {
+    return IlpPacket.serializeIlpReject({
+      code,
+      message: message || '',
+      data: data || Buffer.alloc(0),
+      triggeredBy: this.address
+    })
+  }
+
+  protected async handleData (data: Buffer): Promise<Buffer> {
     let prepare: IlpPacket.IlpPrepare
     let sharedSecret: Buffer
+
     try {
       prepare = IlpPacket.deserializeIlpPrepare(data)
       const parsedAccount = parseAccount(prepare.destination)
 
-      assert(parsedAccount.receiverId === receiverId, 'payment is for a different receiver')
+      assert(parsedAccount.receiverId === this.receiverId, 'payment is for a different receiver')
 
-      sharedSecret = generateSharedSecret(receiverSecret, parsedAccount.token)
+      sharedSecret = generateSharedSecret(this.secret, parsedAccount.token)
     } catch (err) {
       debug('error parsing incoming prepare:', err)
-      return IlpPacket.serializeIlpReject({
-        code: 'F06', // Unexpected Payment
-        message: 'Payment is not for this receiver',
-        data: Buffer.alloc(0),
-        // TODO return our address here
-        triggeredBy: ''
-      })
+      return this.reject('F06', 'Payment is not for this receiver')
     }
 
     let request: PskPacket
@@ -95,26 +135,16 @@ export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback
       request = deserializePskPacket(sharedSecret, prepare.data)
     } catch (err) {
       debug('error decrypting data:', err)
-      return IlpPacket.serializeIlpReject({
-        code: 'F06',
-        message: 'Unable to decrypt data',
-        data: Buffer.alloc(0),
-        triggeredBy: ''
-      })
+      return this.reject('F06', 'Unable to decrypt data')
     }
 
     if (request.type !== constants.TYPE_CHUNK && request.type !== constants.TYPE_LAST_CHUNK) {
       debug(`got unexpected request type: ${request.type}`)
-      return IlpPacket.serializeIlpReject({
-        code: 'F06',
-        message: 'Unexpected request type',
-        data: Buffer.alloc(0),
-        triggeredBy: ''
-      })
+      return this.reject('F06', 'Unexpected request type')
     }
 
     const paymentId = request.paymentId.toString('hex')
-    let record = payments[paymentId]
+    let record = this.payments[paymentId]
     if (!record) {
       record = {
         // TODO buffer user data and keep track of sequence numbers
@@ -123,11 +153,11 @@ export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback
         finished: false,
         finishedPromise: null,
         acceptedByReceiver: null,
-        rejectionMessage: '',
+        rejectionMessage: 'rejected by receiver',
         chunksFulfilled: 0,
         chunksRejected: 0 // doesn't include chunks we cannot parse
       }
-      payments[paymentId] = record
+      this.payments[paymentId] = record
     }
     record.expected = request.paymentAmount
 
@@ -141,12 +171,7 @@ export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback
         paymentAmount: record.received,
         chunkAmount: new BigNumber(prepare.amount)
       })
-      return IlpPacket.serializeIlpReject({
-        code: 'F99',
-        triggeredBy: '',
-        message: '',
-        data
-      })
+      return this.reject('F99', '', data)
     }
 
     // Transfer amount too low
@@ -159,16 +184,13 @@ export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback
       return rejectTransfer(`already received enough for payment. received: ${record.received.toString(10)}, expected: ${record.expected.toString(10)}`)
     }
 
-    // Chunk is too much
-    if (record.received.plus(prepare.amount).gt(record.expected.times(acceptableOverpaymentMultiple))) {
-      return rejectTransfer(`incoming transfer would put the payment too far over the expected amount. already received: ${record.received.toString(10)}, expected: ${record.expected.toString(10)}, transfer amount: ${prepare.amount}`)
-    }
+    // TODO should we reject an incoming chunk if it would put us too far over the expected amount?
 
     // Check if the receiver wants to accept the payment
     if (record.acceptedByReceiver === null) {
       try {
-        await new Promise((resolve, reject) => {
-          callback({
+        await new Promise(async (resolve, reject) => {
+          await this.paymentHandler({
             paymentId,
             expectedAmount: record.expected.toString(10),
             accept: async (): Promise<PaymentReceived> => {
@@ -185,6 +207,9 @@ export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback
             reject: reject
             // TODO include first chunk data
           })
+
+          // If the user didn't call the accept function, reject it
+          reject('receiver did not accept payment')
         })
       } catch (err) {
         record.acceptedByReceiver = false
@@ -195,12 +220,7 @@ export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback
     // Reject the chunk if the receiver didn't want the payment
     if (record.acceptedByReceiver === false) {
       record.chunksRejected += 1
-      return IlpPacket.serializeIlpReject({
-        code: 'F99',
-        message: 'rejected by receiver: ' + record.rejectionMessage,
-        data: Buffer.alloc(0),
-        triggeredBy: ''
-      })
+      return this.reject('F99', record.rejectionMessage)
     }
 
     // Check if we can regenerate the correct fulfillment
@@ -212,12 +232,7 @@ export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback
     } catch (err) {
       debug('error regenerating fulfillment:', err)
       record.chunksRejected += 1
-      return IlpPacket.serializeIlpReject({
-        code: 'F05',
-        message: 'condition generated does not match',
-        triggeredBy: '',
-        data: Buffer.alloc(0)
-      })
+      return this.reject('F05', 'condition generated does not match prepare')
     }
 
     record.chunksFulfilled += 1
@@ -253,43 +268,13 @@ export function listen (plugin: PluginV2 | PluginV1 , opts: ListenOpts, callback
       data: response
     })
   }
-
-  return stopListening
 }
 
-export interface PskParams {
-  sharedSecret: Buffer,
-  destinationAccount: string
-}
-
-export interface GenerateParamsOpts {
-  destinationAccount: string,
-  receiverSecret: Buffer
-}
-
-export function generateParams (opts: GenerateParamsOpts): PskParams {
-  const {
-    destinationAccount,
-    receiverSecret
-  } = opts
-  assert(typeof destinationAccount === 'string', 'destinationAccount must be a string')
-  assert(Buffer.isBuffer(receiverSecret), 'receiverSecret must be a buffer')
-
-  const token = base64url(crypto.randomBytes(TOKEN_LENGTH))
-  const receiverId = getReceiverId(receiverSecret)
-  const sharedSecret = generateSharedSecret(receiverSecret, token)
-
-  return {
-    sharedSecret,
-    destinationAccount: `${destinationAccount}.${receiverId}.${token}`
-  }
-}
-
-function parseAccount (destinationAccount: string): { destinationAccount: string, receiverId: string, token: string } {
+function parseAccount (destinationAccount: string): { destinationAccount: string, receiverId: string, token: Buffer } {
   const split = destinationAccount.split('.')
   assert(split.length >= 2, 'account must have receiverId and token components')
   const receiverId = split[split.length - 2]
-  const token = split[split.length - 1]
+  const token = Buffer.from(split[split.length - 1], 'base64')
   return {
     destinationAccount: split.slice(0, split.length - 2).join('.'),
     receiverId,
@@ -297,14 +282,14 @@ function parseAccount (destinationAccount: string): { destinationAccount: string
   }
 }
 
-function getReceiverId (receiverSecret: Buffer): string {
-  const buf = hmac(receiverSecret, Buffer.from(RECEIVER_ID_STRING, 'utf8')).slice(0, RECEIVER_ID_LENGTH)
+function getReceiverId (secret: Buffer): string {
+  const buf = hmac(secret, Buffer.from(RECEIVER_ID_STRING, 'utf8')).slice(0, RECEIVER_ID_LENGTH)
   return base64url(buf)
 }
 
-function generateSharedSecret (secret: Buffer, token: string): Buffer {
+function generateSharedSecret (secret: Buffer, token: Buffer): Buffer {
   const sharedSecretGenerator = hmac(secret, Buffer.from(PSK_GENERATION_STRING, 'utf8'))
-  return hmac(sharedSecretGenerator, Buffer.from(token, 'base64')).slice(0, SHARED_SECRET_LENGTH)
+  return hmac(sharedSecretGenerator, token).slice(0, SHARED_SECRET_LENGTH)
 }
 
 function hmac (key: Buffer, message: Buffer): Buffer {

@@ -151,11 +151,14 @@ export class Receiver {
       request = deserializePskPacket(sharedSecret, prepare.data)
     } catch (err) {
       debug('error decrypting data:', err)
-      return this.reject('F06', 'Unable to decrypt data')
+      return this.reject('F06', 'Unable to parse data')
     }
 
     if (request.type !== constants.TYPE_CHUNK && request.type !== constants.TYPE_LAST_CHUNK) {
       debug(`got unexpected request type: ${request.type}`)
+      // TODO should this be a different error code?
+      // (this might be a sign that they're using a different version of the protocol)
+      // TODO should this type of response be encrypted?
       return this.reject('F06', 'Unexpected request type')
     }
 
@@ -177,7 +180,7 @@ export class Receiver {
     }
     record.expected = request.paymentAmount
 
-    function rejectTransfer (message: string) {
+    const rejectTransfer = (message: string) => {
       debug(`rejecting transfer ${request.sequence} of payment ${paymentId}: ${message}`)
       record.chunksRejected += 1
       const data = serializePskPacket(sharedSecret, {
@@ -201,6 +204,18 @@ export class Receiver {
     }
 
     // TODO should we reject an incoming chunk if it would put us too far over the expected amount?
+
+    // Check if we can regenerate the correct fulfillment
+    let fulfillment
+    try {
+      fulfillment = dataToFulfillment(sharedSecret, prepare.data)
+      const generatedCondition = fulfillmentToCondition(fulfillment)
+      assert(generatedCondition.equals(prepare.executionCondition), `condition generated does not match. expected: ${prepare.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
+    } catch (err) {
+      debug('error regenerating fulfillment:', err)
+      record.chunksRejected += 1
+      return this.reject('F05', 'condition generated does not match prepare')
+    }
 
     // Check if the receiver wants to accept the payment
     if (record.acceptedByReceiver === null) {
@@ -255,18 +270,6 @@ export class Receiver {
       debug(`rejecting chunk because payment ${paymentId} was rejected by receiver with message: ${record.rejectionMessage}`)
       record.chunksRejected += 1
       return this.reject('F99', record.rejectionMessage)
-    }
-
-    // Check if we can regenerate the correct fulfillment
-    let fulfillment
-    try {
-      fulfillment = dataToFulfillment(sharedSecret, prepare.data)
-      const generatedCondition = fulfillmentToCondition(fulfillment)
-      assert(generatedCondition.equals(prepare.executionCondition), `condition generated does not match. expected: ${prepare.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
-    } catch (err) {
-      debug('error regenerating fulfillment:', err)
-      record.chunksRejected += 1
-      return this.reject('F05', 'condition generated does not match prepare')
     }
 
     record.chunksFulfilled += 1

@@ -79,12 +79,12 @@ describe('Receiver', function () {
           data: Buffer.alloc(32)
         }))
         assert(response)
-        assert.equal(response.toString('hex'), IlpPacket.serializeIlpReject({
+        assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
           code: 'F06',
           message: 'Payment is not for this receiver',
           triggeredBy: 'test.receiver',
           data: Buffer.alloc(0)
-        }).toString('hex'))
+        })
       })
 
       it('should reject if the receiver ID does not match', async function () {
@@ -96,18 +96,112 @@ describe('Receiver', function () {
           data: Buffer.alloc(32)
         }))
         assert(response)
-        assert.equal(response.toString('hex'), IlpPacket.serializeIlpReject({
+        assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
           code: 'F06',
           message: 'Payment is not for this receiver',
           triggeredBy: 'test.receiver',
           data: Buffer.alloc(0)
-        }).toString('hex'))
+        })
       })
 
-    // it('should reject if it cannot decrypt the data', async function () {
+      it('should reject if it cannot decrypt the data', async function () {
+        const { destinationAccount, sharedSecret } = this.receiver.generateAddressAndSecret()
+        const response = await this.plugin.sendData(IlpPacket.serializeIlpPrepare({
+          destination: destinationAccount,
+          amount: '1',
+          expiresAt: new Date(2000),
+          executionCondition: Buffer.alloc(32),
+          data: Buffer.alloc(32)
+        }))
+        assert(response)
+        assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
+          code: 'F06',
+          message: 'Unable to parse data',
+          triggeredBy: 'test.receiver',
+          data: Buffer.alloc(0)
+        })
+      })
 
-    // })
+      it('should reject if it does not know the PSK packet type', async function () {
+        const { destinationAccount, sharedSecret } = this.receiver.generateAddressAndSecret()
+        const response = await this.plugin.sendData(IlpPacket.serializeIlpPrepare({
+          destination: destinationAccount,
+          amount: '1',
+          expiresAt: new Date(2000),
+          executionCondition: Buffer.alloc(32),
+          data: encoding.serializePskPacket(sharedSecret, {
+            type: 4,
+            paymentId: Buffer.alloc(16),
+            sequence: 0,
+            paymentAmount: MAX_UINT64,
+            chunkAmount: MAX_UINT64,
+            applicationData: Buffer.alloc(0)
+          })
+        }))
+        assert(response)
+        assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
+          code: 'F06',
+          message: 'Unexpected request type',
+          triggeredBy: 'test.receiver',
+          data: Buffer.alloc(0)
+        })
+      })
 
+      it('should reject if the prepare amount is lower than the chunk amount specified in the PSK data (and the response should say how much arrived)', async function () {
+        const { destinationAccount, sharedSecret } = this.receiver.generateAddressAndSecret()
+        const response = await this.plugin.sendData(IlpPacket.serializeIlpPrepare({
+          destination: destinationAccount,
+          amount: '100',
+          expiresAt: new Date(2000),
+          executionCondition: Buffer.alloc(32),
+          data: encoding.serializePskPacket(sharedSecret, {
+            type: 0,
+            paymentId: Buffer.alloc(16),
+            sequence: 0,
+            paymentAmount: MAX_UINT64,
+            chunkAmount: MAX_UINT64,
+            applicationData: Buffer.alloc(0)
+          })
+        }))
+        assert(response)
+        const reject = IlpPacket.deserializeIlpReject(response)
+        assert.equal(reject.code, 'F99')
+        assert.equal(reject.message, '')
+        const pskResponse = encoding.deserializePskPacket(sharedSecret, reject.data)
+        assert.deepEqual(pskResponse, {
+          type: 3,
+          paymentId: Buffer.alloc(16),
+          sequence: 0,
+          paymentAmount: new BigNumber(0),
+          chunkAmount: new BigNumber(50),
+          applicationData: Buffer.alloc(0)
+        })
+      })
+
+      it('should reject if it cannot regenerate the fulfillment from the PSK data', async function () {
+        const { destinationAccount, sharedSecret } = this.receiver.generateAddressAndSecret()
+        const response = await this.plugin.sendData(IlpPacket.serializeIlpPrepare({
+          destination: destinationAccount,
+          amount: '100',
+          expiresAt: new Date(2000),
+          executionCondition: Buffer.alloc(32),
+          data: encoding.serializePskPacket(sharedSecret, {
+            type: 0,
+            paymentId: Buffer.alloc(16),
+            sequence: 0,
+            paymentAmount: MAX_UINT64,
+            chunkAmount: new BigNumber(50),
+            applicationData: Buffer.alloc(0)
+          })
+        }))
+        assert(response)
+        assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
+          code: 'F05',
+          message: 'condition generated does not match prepare',
+          triggeredBy: 'test.receiver',
+          data: Buffer.alloc(0)
+        })
+      })
     })
 
     describe('valid one-off packets', function () {

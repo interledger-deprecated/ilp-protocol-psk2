@@ -41,6 +41,16 @@ describe('Receiver', function () {
     })
   })
 
+  describe('disconnect', function () {
+    it('should disconnect the plugin and deregister the data handler', async function () {
+      const disconnect = sinon.spy(this.plugin, 'disconnect')
+      const deregister = sinon.spy(this.plugin, 'deregisterDataHandler')
+      await this.receiver.disconnect()
+      assert(disconnect.called)
+      assert(deregister.called)
+    })
+  })
+
   describe('generateAddressAndSecret', function () {
     it('should throw if the receiver is not connected', function () {
       try {
@@ -280,6 +290,19 @@ describe('Receiver', function () {
           data: Buffer.alloc(0)
         })
       })
+
+      it('should reject payments if there is no payment handler registered', async function () {
+        this.receiver.deregisterPaymentHandler()
+        const response = await this.plugin.sendData(this.prepare)
+
+        assert.equal(response[0], IlpPacket.Type.TYPE_ILP_REJECT)
+        assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
+          code: 'F99',
+          message: 'Receiver has no payment handler registered',
+          triggeredBy: 'test.receiver',
+          data: Buffer.alloc(0)
+        })
+      })
     })
   })
 
@@ -513,11 +536,10 @@ describe('createReceiver', function () {
       }))
   })
 
-  it('should return a new, connected receiver', async function () {
+  it('should return a new, connected receiver with a random secret', async function () {
     const receiver = await createReceiver({
       plugin: this.plugin,
-      paymentHandler: (params: PaymentHandlerParams) => params.accept().then(function () { return }),
-      secret: Buffer.alloc(32)
+      paymentHandler: (params: PaymentHandlerParams) => params.accept().then(function () { return })
     })
     assert(this.plugin.isConnected())
     assert(receiver.isConnected())

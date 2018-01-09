@@ -45,11 +45,13 @@ export interface ReceiverOpts {
 }
 
 export async function createReceiver (opts: ReceiverOpts): Promise<Receiver> {
-  if (!opts.secret) {
-    opts.secret = crypto.randomBytes(32)
-  }
-  const receiver = new Receiver(opts.plugin, opts.secret)
-  receiver.registerPaymentHandler(opts.paymentHandler)
+  const {
+    plugin,
+    paymentHandler,
+    secret = crypto.randomBytes(32)
+  } = opts
+  const receiver = new Receiver(plugin, secret)
+  receiver.registerPaymentHandler(paymentHandler)
   await receiver.connect()
   return receiver
 }
@@ -305,10 +307,8 @@ export class Receiver {
       return this.reject('F99', record.rejectionMessage)
     }
 
-    record.chunksFulfilled += 1
-    debug(`got ${record.finished ? 'last ' : ''}chunk of amount ${prepare.amount} for payment: ${paymentId}. total received: ${record.received.toString(10)}`)
-
     // Update stats based on that chunk
+    record.chunksFulfilled += 1
     record.received = record.received.plus(prepare.amount)
     if (record.received.gte(record.expected) || request.type === constants.TYPE_LAST_CHUNK) {
       record.finished = true
@@ -321,6 +321,8 @@ export class Receiver {
         // TODO add data
       })
     }
+
+    debug(`got ${record.finished ? 'last ' : ''}chunk of amount ${prepare.amount} for payment: ${paymentId}. total received: ${record.received.toString(10)}`)
 
     // Let the sender know how much has arrived
     const response = serializePskPacket(sharedSecret, {

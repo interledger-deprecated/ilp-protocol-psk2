@@ -26,7 +26,9 @@ export interface PaymentHandlerParams {
   paymentId: string,
   expectedAmount: string,
   accept: () => Promise<PaymentReceived>,
-  reject: (message: string) => void
+  reject: (message: string) => void,
+  acceptSingleChunk: () => void,
+  rejectSingleChunk: (message: string) => void
 }
 
 export interface PaymentReceived {
@@ -198,9 +200,10 @@ export class Receiver {
       return rejectTransfer(`incoming transfer amount too low. actual: ${prepare.amount}, expected: ${request.chunkAmount.toString(10)}`)
     }
 
-    // Already received enough
-    if (record.received.gte(record.expected)) {
-      return rejectTransfer(`already received enough for payment. received: ${record.received.toString(10)}, expected: ${record.expected.toString(10)}`)
+    // Payment is already finished
+    if (record.finished) {
+      // TODO should this return an F99 or something else?
+      return rejectTransfer(`payment is already finished`)
     }
 
     // TODO should we reject an incoming chunk if it would put us too far over the expected amount?
@@ -218,6 +221,8 @@ export class Receiver {
     }
 
     // Check if the receiver wants to accept the payment
+    let chunkAccepted = !!record.acceptedByReceiver
+    let userCalledAcceptOrReject = false
     if (record.acceptedByReceiver === null) {
       // This promise resolves when the user has either accepted or rejected the payment
       await new Promise(async (resolve, reject) => {
@@ -231,8 +236,10 @@ export class Receiver {
             paymentId,
             expectedAmount: record.expected.toString(10),
             accept: async (): Promise<PaymentReceived> => {
+              userCalledAcceptOrReject = true
               // Resolve the above promise so that we actually fulfill the incoming chunk
               record.acceptedByReceiver = true
+              chunkAccepted = true
               resolve()
 
               // The promise returned to the receiver will be fulfilled
@@ -245,16 +252,35 @@ export class Receiver {
               return payment
             },
             reject: (message: string) => {
+              userCalledAcceptOrReject = true
               debug('receiver rejected payment with message:', message)
               record.acceptedByReceiver = false
               record.rejectionMessage = message
+              record.finished = false
+              // TODO check that the message isn't too long
+            },
+            // TODO throw error if you've waited too long and it's expired
+            acceptSingleChunk: (): void => {
+              userCalledAcceptOrReject = true
+              chunkAccepted = true
+              record.acceptedByReceiver = null
+              resolve()
+            },
+            rejectSingleChunk: (message: string) => {
+              userCalledAcceptOrReject = true
+              chunkAccepted = false
+              record.acceptedByReceiver = null
+              record.rejectionMessage = message
+              resolve()
+              // TODO check that the message isn't too long
             }
           }))
 
           // If the user didn't call the accept function, reject it
-          if (record.acceptedByReceiver === null) {
+          if (!userCalledAcceptOrReject) {
             record.acceptedByReceiver = false
             record.rejectionMessage = 'receiver did not accept the payment'
+            record.finished = true
           }
         } catch (err) {
           debug('error thrown in payment handler:', err)
@@ -265,9 +291,16 @@ export class Receiver {
       })
     }
 
-    // Reject the chunk if the receiver didn't want the payment
+    // Reject the chunk if the receiver rejected the whole payment
     if (record.acceptedByReceiver === false) {
       debug(`rejecting chunk because payment ${paymentId} was rejected by receiver with message: ${record.rejectionMessage}`)
+      record.chunksRejected += 1
+      return this.reject('F99', record.rejectionMessage)
+    }
+
+    // Reject the chunk of the receiver rejected the specific chunk
+    if (!chunkAccepted) {
+      debug(`rejecting chunk ${request.sequence} of payment ${paymentId} because it was rejected by the receiver with the message: ${record.rejectionMessage}`)
       record.chunksRejected += 1
       return this.reject('F99', record.rejectionMessage)
     }
@@ -283,9 +316,9 @@ export class Receiver {
         id: paymentId,
         receivedAmount: record.received.toString(10),
         expectedAmount: record.expected.toString(10),
-        chunksFulfilled: record.chunksFulfilled
+        chunksFulfilled: record.chunksFulfilled,
+        chunksRejected: record.chunksRejected
         // TODO add data
-        // TODO report rejected chunks?
       })
     }
 

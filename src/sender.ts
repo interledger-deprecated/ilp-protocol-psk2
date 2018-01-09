@@ -236,7 +236,7 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
   try {
     const response = deserializePskPacket(sharedSecret, fulfillmentInfo.data)
 
-    assert(constants.TYPE_FULFILLMENT === response.type, `unexpected packet type. expected: ${constants.TYPE_FULFILLMENT}, actual: ${response.type}`)
+    assert(constants.TYPE_FULFILLMENT === response.type, `unexpected PSK packet type. expected: ${constants.TYPE_FULFILLMENT}, actual: ${response.type}`)
     assert(id.equals(response.paymentId), `response does not correspond to request. payment id does not match. actual: ${response.paymentId.toString('hex')}, expected: ${id.toString('hex')}`)
     assert(sequence === response.sequence, `response does not correspond to request. sequence does not match. actual: ${response.sequence}, expected: ${sequence}`)
 

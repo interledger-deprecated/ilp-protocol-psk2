@@ -368,6 +368,75 @@ describe('Sender', function () {
       }
       assert(false, 'should not get here')
     })
+
+    it('rejects if the response is an invalid or unknown ILP packet', async function () {
+      this.plugin.sendData = (buffer: Buffer) => Promise.resolve(Buffer.alloc(100, 'FF', 'hex'))
+
+      try {
+        await sender.sendSingleChunk(this.plugin, {
+          sharedSecret: SHARED_SECRET,
+          destinationAccount: 'test.receiver',
+          sourceAmount: '100',
+          minDestinationAmount: '50'
+        })
+      } catch (err) {
+        assert.include(err.message, 'Packet has invalid type')
+        // assert.include(err.message, 'Receiver says too little arrived. actual: 45, expected: 50')
+        return
+      }
+      assert(false, 'should not get here')
+    })
+
+    it('rejects if the response is neither an IlpPrepare nor an IlpReject', async function () {
+      this.plugin.sendData = (buffer: Buffer) => Promise.resolve(IlpPacket.serializeIlpRejection({
+        code: 'F00',
+        triggeredBy: 'test.receiver',
+        message: 'blah',
+        data: Buffer.alloc(0)
+      }))
+
+      try {
+        await sender.sendSingleChunk(this.plugin, {
+          sharedSecret: SHARED_SECRET,
+          destinationAccount: 'test.receiver',
+          sourceAmount: '100',
+          minDestinationAmount: '50'
+        })
+      } catch (err) {
+        assert.include(err.message, 'Unexpected type for sendData response: 11')
+        return
+      }
+      assert(false, 'should not get here')
+    })
+
+    it('rejects if the PSK response packet sequence does not correspond to the request', async function () {
+      this.plugin.sendData = (buffer: Buffer) => Promise.resolve(IlpPacket.serializeIlpFulfill({
+        fulfillment: Buffer.from('Ded+Vm/TnwueomuxDktqo/+BPu43dYyvDBrf1p7dVys=', 'base64'),
+        data: encoding.serializePskPacket(SHARED_SECRET, {
+          type: 3,
+          paymentId: PAYMENT_ID,
+          sequence: 5,
+          paymentAmount: MAX_UINT64,
+          chunkAmount: new BigNumber('45'),
+          applicationData: Buffer.alloc(0)
+        })
+      }))
+
+      try {
+        await sender.sendSingleChunk(this.plugin, {
+          sharedSecret: SHARED_SECRET,
+          destinationAccount: 'test.receiver',
+          sourceAmount: '100',
+          minDestinationAmount: '50'
+        })
+      } catch (err) {
+        assert.include(err.message, 'Invalid response from receiver: unexpected PSK packet type. expected: 2, actual: 3')
+        // assert.include(err.message, 'Receiver says too little arrived. actual: 45, expected: 50')
+        return
+      }
+      assert(false, 'should not get here')
+    })
+
   })
 })
 

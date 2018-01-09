@@ -151,6 +151,7 @@ export interface SendSingleChunkParams {
   destinationAccount: string,
   minDestinationAmount?: BigNumber | string | number,
   id?: Buffer,
+  sequence?: number,
   lastChunk?: boolean
 }
 
@@ -171,6 +172,7 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
     destinationAccount,
     minDestinationAmount = 0,
     id = crypto.randomBytes(16),
+    sequence = 0,
     lastChunk = true
   } = params
 
@@ -181,7 +183,6 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
 
   debug(`sending single chunk payment ${id.toString('hex')} with source amount: ${sourceAmount} and minimum destination amount: ${minDestinationAmount}`)
 
-  const sequence = 0
   const data = serializePskPacket(sharedSecret, {
     type: (lastChunk ? constants.TYPE_LAST_CHUNK : constants.TYPE_CHUNK),
     paymentId: id,

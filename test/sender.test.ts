@@ -242,6 +242,46 @@ describe('Sender', function () {
       spy.restore()
     })
 
+    it('should allow the user to set the paymentId, sequence, and last chunk boolean', async function () {
+      const stub = sinon.stub(this.plugin, 'sendData')
+        .resolves(IlpPacket.serializeIlpFulfill({
+          fulfillment: Buffer.from('W1FuCUSj7DXLzQMGlWC7HxbTHs6jOVRtAh5uITnmzWY=', 'base64'),
+          data: encoding.serializePskPacket(SHARED_SECRET, {
+            type: 2,
+            paymentId: Buffer.alloc(16, 5),
+            sequence: 5,
+            paymentAmount: MAX_UINT64,
+            chunkAmount: new BigNumber(55),
+            applicationData: Buffer.alloc(0)
+          })
+        }))
+      await sender.sendSingleChunk(this.plugin, {
+        sharedSecret: SHARED_SECRET,
+        destinationAccount: 'test.receiver',
+        sourceAmount: '100',
+        minDestinationAmount: '50',
+        id: Buffer.alloc(16, 5),
+        sequence: 5,
+        lastChunk: false
+      })
+
+      assert(stub.calledWith(IlpPacket.serializeIlpPrepare({
+        destination: 'test.receiver',
+        amount: '100',
+        executionCondition: Buffer.from('3b06f0bb996ebfebc485ba91418b59e99fa8b0ab610670df1c1a13c34d416c57', 'hex'),
+        expiresAt: new Date(2000),
+        data: encoding.serializePskPacket(SHARED_SECRET, {
+          type: 0,
+          paymentId: Buffer.alloc(16, 5),
+          sequence: 5,
+          paymentAmount: MAX_UINT64,
+          chunkAmount: new BigNumber(50)
+        })
+      })))
+
+      stub.restore()
+    })
+
     it('returns the amount that arrived at the destination', async function () {
       const result = await sender.sendSingleChunk(this.plugin, {
         sharedSecret: SHARED_SECRET,

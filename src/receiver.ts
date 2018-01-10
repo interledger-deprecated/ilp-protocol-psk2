@@ -18,16 +18,45 @@ const RECEIVER_ID_LENGTH = 8
 const TOKEN_LENGTH = 18
 const SHARED_SECRET_LENGTH = 32
 
+/**
+ * Review callback that will be called every time the Receiver receives an incoming payment or payment chunk.
+ *
+ * The payment handler can call the [`accept`]{@link PaymentHandlerParams.accept} or [`reject`]{@link PaymentHandlerParams.reject} methods to fulfill or reject the entire payment.
+ */
 export interface PaymentHandler {
   (params: PaymentHandlerParams): void | Promise<void>
 }
 
+/**
+ * Parameters passed to the Receiver's payment handler callback.
+ */
 export interface PaymentHandlerParams {
   id: Buffer,
+  /** Total amount that should be delivered by this payment.
+   * If the sender has not specified a destination amount, this value will be the maximum UInt64 value or 18446744073709551615.
+   */
   expectedAmount: string,
+  /**
+   * Accept the entire payment.
+   * The Receiver will automatically fulfill all incoming chunks until the `expectedAmount`
+   * has been delivered or the sender has indicated the payment is finished.
+   *
+   * The Promise returned will resolve to a [`PaymentReceived`]{@link PaymentReceived} when the payment is finished.
+   */
   accept: () => Promise<PaymentReceived>,
+  /**
+   * Reject the entire payment (and all subsequent chunks with the same `id`).
+   */
   reject: (message: string) => void,
+  /**
+   * Alternative to `accept` that gives the user more control over the payment chunks they wish to fulfill.
+   * If this method is called, the PaymentHandler callback will be called again for subsequent chunks with the same payment `id`.
+   */
   acceptSingleChunk: () => void,
+  /**
+   * Alternative to `reject` that gives the user more control over the payment chunks they wish to reject.
+   * If this method is called, the PaymentHandler callback will be called again for subsequent chunks with the same payment `id`.
+   */
   rejectSingleChunk: (message: string) => void
 }
 
@@ -38,12 +67,22 @@ export interface PaymentReceived {
   chunksFulfilled: number
 }
 
+/**
+ * Params for instantiating a Receiver using the [`createReceiver`]{@link createReceiver} function.
+ */
 export interface ReceiverOpts {
   plugin: PluginV2 | PluginV1,
   paymentHandler: PaymentHandler,
   secret?: Buffer
 }
 
+/**
+ * PSK2 Receiver class that listens for and accepts incoming payments.
+ *
+ * The same Receiver may be used for accepting single-chunk payments, streaming payments, and chunked payments.
+ *
+ * It is recommended to use the [`createReceiver`]{@link createReceiver} function to instantiate Receivers.
+ */
 export class Receiver {
   protected plugin: PluginV2
   protected secret: Buffer
@@ -65,6 +104,9 @@ export class Receiver {
     this.connected = false
   }
 
+  /**
+   * Fetch the receiver's ILP address using [ILDCP](https://github.com/interledgerjs/ilp-protocol-ildcp) and listen for incoming payments.
+   */
   async connect (): Promise<void> {
     debug('connect called')
     await this.plugin.connect()
@@ -75,6 +117,9 @@ export class Receiver {
     debug('connected')
   }
 
+  /**
+   * Stop listening for incoming payments.
+   */
   async disconnect (): Promise<void> {
     debug('disconnect called')
     this.connected = false
@@ -83,11 +128,19 @@ export class Receiver {
     debug('disconnected')
   }
 
+  /**
+   * Check if the receiver is currently listening for incoming payments.
+   */
   isConnected (): boolean {
     this.connected = this.connected && this.plugin.isConnected()
     return this.connected
   }
 
+  /**
+   * Register a callback that will be called every time a new payment is received.
+   *
+   * The user must call `accept` or `acceptSingleChunk` to make the Receiver fulfill the payment.
+   */
   registerPaymentHandler (handler: PaymentHandler): void {
     debug('registered payment handler')
     /* tslint:disable-next-line:strict-type-predicates */
@@ -95,10 +148,20 @@ export class Receiver {
     this.paymentHandler = handler
   }
 
+  /**
+   * Remove the payment handler callback.
+   */
   deregisterPaymentHandler (): void {
     this.paymentHandler = this.defaultPaymentHandler
   }
 
+  /**
+   * Generate a unique ILP address and shared secret to give to a sender.
+   *
+   * The Receiver must be connected before this method can be called.
+   *
+   * **Note:** A single shared secret MUST NOT be given to more than one sender.
+   */
   generateAddressAndSecret (): { destinationAccount: string, sharedSecret: Buffer } {
     assert(this.connected, 'Receiver must be connected')
     const token = crypto.randomBytes(TOKEN_LENGTH)
@@ -147,7 +210,7 @@ export class Receiver {
       return this.reject('F06', 'Unable to parse data')
     }
 
-    if (request.type !== constants.TYPE_CHUNK && request.type !== constants.TYPE_LAST_CHUNK) {
+    if (request.type !== constants.TYPE_PSK2_CHUNK && request.type !== constants.TYPE_PSK2_LAST_CHUNK) {
       debug(`got unexpected request type: ${request.type}`)
       // TODO should this be a different error code?
       // (this might be a sign that they're using a different version of the protocol)
@@ -177,7 +240,7 @@ export class Receiver {
       debug(`rejecting transfer ${request.sequence} of payment ${paymentId}: ${message}`)
       record.chunksRejected += 1
       const data = serializePskPacket(sharedSecret, {
-        type: constants.TYPE_ERROR,
+        type: constants.TYPE_PSK2_ERROR,
         paymentId: request.paymentId,
         sequence: request.sequence,
         paymentAmount: record.received,
@@ -299,7 +362,7 @@ export class Receiver {
     // Update stats based on that chunk
     record.chunksFulfilled += 1
     record.received = record.received.plus(prepare.amount)
-    if (record.received.gte(record.expected) || request.type === constants.TYPE_LAST_CHUNK) {
+    if (record.received.gte(record.expected) || request.type === constants.TYPE_PSK2_LAST_CHUNK) {
       record.finished = true
       record.finishedPromise.resolve({
         id: request.paymentId,
@@ -315,7 +378,7 @@ export class Receiver {
 
     // Let the sender know how much has arrived
     const response = serializePskPacket(sharedSecret, {
-      type: constants.TYPE_FULFILLMENT,
+      type: constants.TYPE_PSK2_FULFILLMENT,
       paymentId: request.paymentId,
       sequence: request.sequence,
       paymentAmount: record.received,
@@ -331,6 +394,25 @@ export class Receiver {
   }
 }
 
+/**
+ * Convenience function for instantiating and connecting a PSK2 [Receiver]{@link Receiver}.
+ *
+ * @example <caption>Creating a Receiver</caption>
+ * ```typescript
+ * import { createReceiver } from 'ilp-psk2'
+ * const receiver = await createReceiver({
+ *   plugin: myLedgerPlugin,
+ *   paymentHandler: async (params) => {
+ *     // Accept all incoming payments
+ *     const result = await params.accept()
+ *     console.log('Got payment for:', result.receivedAmount)
+ *   }
+ * })
+ *
+ * const { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
+ * // Give these two values to a sender to enable them to send payments to this Receiver
+ * ```
+ */
 export async function createReceiver (opts: ReceiverOpts): Promise<Receiver> {
   const {
     plugin,

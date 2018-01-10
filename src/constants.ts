@@ -1,10 +1,10 @@
 import BigNumber from 'bignumber.js'
 
 // PSK Packet Types
-export const TYPE_CHUNK = 0
-export const TYPE_LAST_CHUNK = 1
-export const TYPE_FULFILLMENT = 2
-export const TYPE_ERROR = 3
+export const TYPE_PSK2_CHUNK = 0
+export const TYPE_PSK2_LAST_CHUNK = 1
+export const TYPE_PSK2_FULFILLMENT = 2
+export const TYPE_PSK2_ERROR = 3
 
 // PSK Parameters
 export const PSK_FULFILLMENT_STRING = 'ilp_psk2_fulfillment'

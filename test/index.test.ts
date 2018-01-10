@@ -16,9 +16,8 @@ describe('Exports', function () {
   })
 
   it('exports the constants and encoding functions', function () {
-    assert.typeOf(PSK2.encoding.deserializePskPacket, 'function')
-    assert.typeOf(PSK2.encoding.serializePskPacket, 'function')
-
-    assert(PSK2.encoding)
+    assert.typeOf(PSK2.deserializePskPacket, 'function')
+    assert.typeOf(PSK2.serializePskPacket, 'function')
+    assert.typeOf(PSK2.TYPE_PSK2_CHUNK, 'number')
   })
 })

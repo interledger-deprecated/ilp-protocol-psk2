@@ -14,6 +14,10 @@ export interface PskPacket {
   applicationData?: Buffer
 }
 
+/**
+ * Serialize and encrypt a PSK2 packet.
+ * The result may be sent as the `data` in an `IlpPrepare`, `IlpFulfill`, or `IlpReject` packet.
+ */
 export function serializePskPacket (sharedSecret: Buffer, pskPacket: PskPacket): Buffer {
   const {
     type,
@@ -46,6 +50,9 @@ export function serializePskPacket (sharedSecret: Buffer, pskPacket: PskPacket):
   return ciphertext
 }
 
+/**
+ * Decrypt and deserialize a PSK2 packet.
+ */
 export function deserializePskPacket (sharedSecret: Buffer, ciphertext: Buffer): PskPacket {
   const contents = decrypt(sharedSecret, ciphertext)
   const reader = new oer.Reader(contents)

@@ -7,3 +7,5 @@ coverage
 **/*.d.ts
 .nyc_output
 !wallaby.js
+doc
+!typedoc.js

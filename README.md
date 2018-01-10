@@ -5,5 +5,4 @@
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 
 
-Javascript implementation of the [Pre-Shared Key V2](https://github.com/interledger/rfcs/pull/351) Interledger Transport Protocol.
-
+Javascript implementation of the [Pre-Shared Key V2](https://github.com/interledger/rfcs/pull/351) Interledger Transport Protocol. This can be used to send and receive individual, streaming, and chunked payments as well as end-to-end quotes.

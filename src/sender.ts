@@ -16,58 +16,143 @@ const TRANSFER_DECREASE = 0.5
 // Chunked payments are still experimental so we want to warn the user (but only once per use of the module)
 let warnedUserAboutChunkedPayments = false
 
+/** Parameters for the [`quoteSourceAmount`]{@link quoteSourceAmount} method. */
 export interface QuoteSourceParams {
+  /**
+   * Integer amount indicating how much the sender would like to send.
+   *
+   * **Note:** The `quoteSourceAmount` method will send an unfulfillable test payment of this amount to the Receiver to determine the path exchange rate.
+   */
   sourceAmount: BigNumber | string | number,
+  /** Shared secret from the Receiver (generated with the [`generateAddressAndSecret`]{@link Receiver.generateAddressAndSecret} method). */
   sharedSecret: Buffer,
+  /** Destination account of the Receiver (generated with the [`generateAddressAndSecret`]{@link Receiver.generateAddressAndSecret} method). */
   destinationAccount: string,
+  /** Optional ID that will be used as the PSK Payment ID. A random one will be used if none is provided. */
   id?: Buffer
 }
 
+/** Parameters for the [`quoteDestinationAmount`]{@link quoteDestinationAmount} method. */
 export interface QuoteDestinationParams {
+  /**
+   * Integer amount indicating how much the sender would like to deliver to the Receiver, denoted in the Receiver's units.
+   *
+   * **Note:** The `quoteDestinationAmount` method will send an unfulfillable test payment of 1000 source units to the Receiver to determine the path exchange rate.
+   */
   destinationAmount: BigNumber | string | number,
+  /** Shared secret from the Receiver (generated with the [`generateAddressAndSecret`]{@link Receiver.generateAddressAndSecret} method). */
   sharedSecret: Buffer,
+  /** Destination account of the Receiver (generated with the [`generateAddressAndSecret`]{@link Receiver.generateAddressAndSecret} method). */
   destinationAccount: string,
+  /** Optional ID that will be used as the PSK Payment ID. A random one will be used if none is provided. */
   id?: Buffer
 }
 
+/** Quote result from either the [`quoteSourceAmount`]{@link quoteSourceAmount} or [`quoteDestinationAmount`]{@link quoteDestinationAmount} methods. */
 export interface QuoteResult {
-  id: Buffer,
+  /** Integer amount indicating approximately how much the sender must send in order to deliver the given destination amount to the Receiver. */
   sourceAmount: string,
+  /** Integer amount indicating approximately how much will be delivered to the Receiver if the sender sends the given destination amoutn. Denominated in the Receiver's units. */
   destinationAmount: string
 }
 
+/** Parameters for the [`sendSingleChunk`]{@link sendSingleChunk} method to send a one-off payment. */
 export interface SendSingleChunkParams {
+  /** Integer amount indicating how much should be sent. Denoted in the sender's units. */
   sourceAmount: BigNumber | string | number,
+  /** Shared secret from the Receiver (generated with the [`generateAddressAndSecret`]{@link Receiver.generateAddressAndSecret} method). */
   sharedSecret: Buffer,
+  /** Destination account of the Receiver (generated with the [`generateAddressAndSecret`]{@link Receiver.generateAddressAndSecret} method). */
   destinationAccount: string,
+  /**
+   * Minimum amount that the Receiver should get in order for them to fulfill the payment. Defaults to `0`.
+   *
+   * If the sender gets a quote before sending, they SHOULD set this value to the destination amount they expect will be delivered.
+   * A `0`-amount means that the Receiver will fulfill the payment even if the connectors charge unreasonably high fees.
+   */
   minDestinationAmount?: BigNumber | string | number,
-  id?: Buffer,
-  sequence?: number,
-  lastChunk?: boolean
 }
 
+/** Parameters for the [`sendSingleChunk`]{@link sendSingleChunk} method that give the user more control and may be used for streaming payments. */
+export interface SendSingleChunkAdvancedParams {
+  /** See [SendSingleChunkParams]{@link SendSingleChunkParams} */
+  sourceAmount: BigNumber | string | number,
+  /** See [SendSingleChunkParams]{@link SendSingleChunkParams} */
+  sharedSecret: Buffer,
+  /** See [SendSingleChunkParams]{@link SendSingleChunkParams} */
+  destinationAccount: string
+  /** See [SendSingleChunkParams]{@link SendSingleChunkParams} */
+  minDestinationAmount?: BigNumber | string | number,
+  /**
+   * Optional ID that will be used as the PSK Payment ID and that the Receiver will use to group payment chunks. Defaults to a random 16-byte ID.
+   *
+   * This value must be set if the sender wants the Receiver to associate multiple payment chunks with one payment or interaction.
+   *
+   * If this value is set, the user MUST increment the `sequence` number for each chunk fulfilled.
+   */
+  id: Buffer,
+  /**
+   * Sequence number for the chunk within a larger payment. Defaults to `0`.
+   *
+   * If the `id` is set, this value MUST be incremented for each chunk fulfilled.
+   */
+  sequence: number,
+  /**
+   * Indicates to the Receiver whether this is the last chunk of the given payment `id`. Defaults to `true`.
+   *
+   * Once the Receiver has received a chunk with the last chunk flag set, they will no longer accept more chunks
+   */
+  lastChunk: boolean
+}
+
+/** Return value from [`sendSingleChunk`]{@link sendSingleChunk}, [`sendSourceAmount`]{@link sendSourceAmount}, and [`sendDestinationAmount`]{@link sendDestinationAmount}. */
 export interface SendResult {
   id: Buffer,
+  /** Integer amount that the sender sent. Denoted in the sender's currency and units. */
   sourceAmount: string,
+  /** Integer amount that the receiver says they received. Denoted in the receiver's currency and units. */
   destinationAmount: string,
+  /** The number of payment chunks that were sent successfully as part of this payment. */
   chunksFulfilled: number,
+  /** The number of payment chunks that were rejected as part of this payment. */
   chunksRejected: number
 }
 
+/** Parameters for sending a chunked payment with the **experimental** [`sendSourceAmount`]{@link sendSourceAmount} method */
 export interface SendSourceParams {
+  /** Source amount that the sender will send. Denoted in the sender's currency and units. This may be split into multiple chunks. */
   sourceAmount: BigNumber | string | number,
+  /** Shared secret from the Receiver (generated with the [`generateAddressAndSecret`]{@link Receiver.generateAddressAndSecret} method). */
   sharedSecret: Buffer,
+  /** Destination account of the Receiver (generated with the [`generateAddressAndSecret`]{@link Receiver.generateAddressAndSecret} method). */
   destinationAccount: string,
+  /** Optional ID that will be used as the PSK Payment ID. Defaults to a random 16-byte ID. */
   id?: Buffer
 }
 
+/** Parameters for sending a chunked payment with the **experimental** [`sendDestinationAmount`]{@link sendDestinationAmount} method */
 export interface SendDestinationParams {
+  /**
+   * Destination amount that will be delivered to the Receiver. Denoted in the receiver's currency and units.
+   *
+   * **Note:** The sender will keep sending payment chunks until the receiver says they have gotten this amount. This method SHOULD NOT be used with untrusted receivers.
+   */
   destinationAmount: BigNumber | string | number,
+  /** Shared secret from the Receiver (generated with the [`generateAddressAndSecret`]{@link Receiver.generateAddressAndSecret} method). */
   sharedSecret: Buffer,
+  /** Destination account of the Receiver (generated with the [`generateAddressAndSecret`]{@link Receiver.generateAddressAndSecret} method). */
   destinationAccount: string,
+  /** Optional ID that will be used as the PSK Payment ID. Defaults to a random 16-byte ID. */
   id?: Buffer
 }
 
+/**
+ * Get an approximate quote for how much will be delivered to the Receiver if the sender sends the given source amount.
+ *
+ * The value returned is non-binding so the exchange rate may change after the quote is returned.
+ *
+ * **Note:** This method sends an unfulfillable test payment of the given amount to the Receiver to determine the path exchange rate.
+ */
 export async function quoteSourceAmount (plugin: PluginV2 | PluginV1, params: QuoteSourceParams) {
   let {
     sourceAmount,
@@ -85,6 +170,15 @@ export async function quoteSourceAmount (plugin: PluginV2 | PluginV1, params: Qu
   return quote(plugin, sharedSecret, id, destinationAccount, sourceAmount, undefined)
 }
 
+/**
+ * Get an approximate quote for how much the sender must send in order to deliver the given destination amount to the Receiver.
+ *
+ * The value returned is non-binding so the exchange rate may change after the quote is returned.
+ *
+ * Currently, this method assumes exchange rates are linear. The result may be incorrect if the path exchange rate varies by size of payment.
+ *
+ * **Note:** This method sends an unfulfillable test payment of `1000` source units to the Receiver to determine the path exchange rate.
+ */
 export async function quoteDestinationAmount (plugin: PluginV2 | PluginV1, params: QuoteDestinationParams) {
   let {
     destinationAmount,
@@ -117,7 +211,7 @@ async function quote (
   const data = serializePskPacket(
     sharedSecret, {
       // TODO should this be the last chunk? what if you want to use the same id for the quote and payment?
-      type: constants.TYPE_LAST_CHUNK,
+      type: constants.TYPE_PSK2_LAST_CHUNK,
       paymentId: id,
       sequence,
       paymentAmount: constants.MAX_UINT64,
@@ -151,7 +245,7 @@ async function quote (
     const quoteResponse = deserializePskPacket(sharedSecret, rejection.data)
 
     // Validate that this is actually the response to our request
-    assert(quoteResponse.type === constants.TYPE_ERROR, 'response type must be error')
+    assert(quoteResponse.type === constants.TYPE_PSK2_ERROR, 'response type must be error')
     assert(id.equals(quoteResponse.paymentId), 'response Payment ID does not match outgoing quote')
     assert(sequence === quoteResponse.sequence, 'sequence does not match outgoing quote')
 
@@ -176,24 +270,97 @@ async function quote (
     quotedDestinationAmount = new BigNumber(destinationAmount as BigNumber)
   }
   return {
-    id,
     sourceAmount: quotedSourceAmount.toString(10),
     destinationAmount: quotedDestinationAmount.toString(10)
   }
 }
 
-export async function sendSingleChunk (plugin: any, params: SendSingleChunkParams): Promise<SendResult> {
+/**
+ * Send a single payment chunk. This may be used for one-off payments or streaming payments.
+ *
+ * If this method is used for streaming payments, the user must pass in the [`SendSingleChunkAdvancedParams`]{@link SendSingleChunkAdvancedParams}.
+ *
+ * @example <caption>One-off payment</caption>
+ * ```typescript
+ *   import { sendSingleChunk, quoteDestinationAmount } from 'ilp-psk2'
+ *
+ *   // These values must be communicated beforehand for the sender to send a payment
+ *   const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver
+ *
+ *   const { sourceAmount } = await quoteDestinationAmount(myLedgerPlugin, {
+ *     destinationAccount,
+ *     sharedSecret,
+ *     destinationAmount: '1000'
+ *   })
+ *
+ *   const result = await sendSingleChunk(myLedgerPlugin, {
+ *     destinationAccount,
+ *     sharedSecret,
+ *     sourceAmount,
+ *     minDestinationAmount: '999'
+ *   })
+ *   console.log(`Sent payment of ${result.sourceAmount}, receiver got ${result.destinationAmount}`)
+ * ```
+ *
+ * @example <caption>Streaming payments</caption>
+ * ```typescript
+ *   import { randomBytes } from 'crypto'
+ *   import { sendSingleChunk } from 'ilp-psk2'
+ *
+ *   // These values must be communicated beforehand for the sender to send a payment
+ *   const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver
+ *
+ *   const id = crypto.randomBytes(16)
+ *   let sequence = 0
+ *   const firstChunkResult = await sendSingleChunk(myLedgerPlugin, {
+ *     destinationAccount,
+ *     sharedSecret,
+ *     sourceAmount,
+ *     minDestinationAmount: '0',
+ *     id,
+ *     sequence,
+ *     lastChunk: false
+ *   })
+ *
+ *  // Repeat as many times as desired, incrementing the sequence each time
+ *  // Note that the path exchange rate can be determined by dividing the destination amount returned by the chunk amount sent
+ *
+ *   const lastChunkResult = await sendSingleChunk(myLedgerPlugin, {
+ *     destinationAccount,
+ *     sharedSecret,
+ *     sourceAmount,
+ *     minDestinationAmount: '0',
+ *     id,
+ *     sequence,
+ *     lastChunk: true
+ *   })
+ * ```
+ */
+export async function sendSingleChunk (plugin: any, params: SendSingleChunkParams | SendSingleChunkAdvancedParams): Promise<SendResult> {
   plugin = convert(plugin)
   const debug = Debug('ilp-psk2:singleChunk')
   const {
     sourceAmount,
     sharedSecret,
     destinationAccount,
-    minDestinationAmount = 0,
-    id = crypto.randomBytes(16),
-    sequence = 0,
-    lastChunk = true
+    minDestinationAmount = 0
   } = params
+
+  // These parameters are only set if the user uses the "advanced" way, which gives them more control
+  let id: Buffer
+  let sequence: number
+  let lastChunk: boolean
+  if (params as SendSingleChunkAdvancedParams) {
+    const advanced = params as SendSingleChunkAdvancedParams
+    id = advanced.id
+    sequence = advanced.sequence
+    lastChunk = advanced.lastChunk
+  } else {
+    // Defaults
+    id = crypto.randomBytes(16)
+    sequence = 0
+    lastChunk = true
+  }
 
   assert(sharedSecret, 'sharedSecret is required')
   assert(sharedSecret.length >= 32, 'sharedSecret must be at least 32 bytes')
@@ -203,7 +370,7 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
   debug(`sending single chunk payment ${id.toString('hex')} with source amount: ${sourceAmount} and minimum destination amount: ${minDestinationAmount}`)
 
   const data = serializePskPacket(sharedSecret, {
-    type: (lastChunk ? constants.TYPE_LAST_CHUNK : constants.TYPE_CHUNK),
+    type: (lastChunk ? constants.TYPE_PSK2_LAST_CHUNK : constants.TYPE_PSK2_CHUNK),
     paymentId: id,
     sequence,
     // We don't set the paymentAmount to the minDestinationAmount just in case
@@ -257,7 +424,7 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
   try {
     const response = deserializePskPacket(sharedSecret, fulfillmentInfo.data)
 
-    assert(constants.TYPE_FULFILLMENT === response.type, `unexpected PSK packet type. expected: ${constants.TYPE_FULFILLMENT}, actual: ${response.type}`)
+    assert(constants.TYPE_PSK2_FULFILLMENT === response.type, `unexpected PSK packet type. expected: ${constants.TYPE_PSK2_FULFILLMENT}, actual: ${response.type}`)
     assert(id.equals(response.paymentId), `response does not correspond to request. payment id does not match. actual: ${response.paymentId.toString('hex')}, expected: ${id.toString('hex')}`)
     assert(sequence === response.sequence, `response does not correspond to request. sequence does not match. actual: ${response.sequence}, expected: ${sequence}`)
 
@@ -279,12 +446,27 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
   }
 }
 
+/**
+ * **Experimental** method for sending a chunked payment with a fixed source amount.
+ *
+ * The sender will keep sending payment chunks until the given source amount has been sent.
+ *
+ * **Note:** Chunked payments may be interrupted in the middle, for example if the path runs out of liquidity. This method should be used with caution.
+ */
 export async function sendSourceAmount (plugin: any, params: SendSourceParams): Promise<SendResult> {
   assert(params.sourceAmount, 'sourceAmount is required')
   return sendChunkedPayment(plugin, params)
 }
 
+/**
+ * **Experimental** method for sending a chunked payment with a fixed destination amount.
+ *
+ * The sender will keep sending payment chunks until the receiver says they have gotten the given destination amount. **This method SHOULD NOT be used with untrusted receivers.**
+ *
+ * **Note**: Chunked payments may be interrupted in the middle and the path exchange rate may change while a payment is being sent. **This method should be used with EXTREME CAUTION.**
+ */
 export async function sendDestinationAmount (plugin: any, params: SendDestinationParams): Promise<SendResult> {
+  // TODO allow setting a maximum source amount? (the problem would be that even if you hit the max, you still would have sent it without delivering the destination amount)
   assert(params.destinationAmount, 'destinationAmount is required')
   return sendChunkedPayment(plugin, params)
 }
@@ -394,7 +576,7 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
       constants.MAX_UINT64)
 
     const data = serializePskPacket(sharedSecret, {
-      type: (lastChunk ? constants.TYPE_LAST_CHUNK : constants.TYPE_CHUNK),
+      type: (lastChunk ? constants.TYPE_PSK2_LAST_CHUNK : constants.TYPE_PSK2_CHUNK),
       paymentId: id,
       sequence,
       paymentAmount: (destinationAmount ? new BigNumber(destinationAmount) : constants.MAX_UINT64),
@@ -430,7 +612,7 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
       }
 
       amountSent = amountSent.plus(chunkSize)
-      handleReceiverResponse(fulfill.data, constants.TYPE_FULFILLMENT, sequence)
+      handleReceiverResponse(fulfill.data, constants.TYPE_PSK2_FULFILLMENT, sequence)
 
       chunksFulfilled += 1
       chunkSize = chunkSize.times(TRANSFER_INCREASE).round(0)
@@ -449,7 +631,7 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
         // Handle if the receiver rejects the transfer with a PSK packet
         handleReceiverResponse(
           rejection.data,
-          constants.TYPE_ERROR,
+          constants.TYPE_PSK2_ERROR,
           sequence)
       } else if (rejection.code[0] === 'T' || rejection.code[0] === 'R') {
         // Handle temporary and relative errors

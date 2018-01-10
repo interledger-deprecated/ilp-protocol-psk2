@@ -13,6 +13,9 @@ const STARTING_TRANSFER_AMOUNT = 1000
 const TRANSFER_INCREASE = 1.1
 const TRANSFER_DECREASE = 0.5
 
+// Chunked payments are still experimental so we want to warn the user (but only once per use of the module)
+let warnedUserAboutChunkedPayments = false
+
 export interface QuoteSourceParams {
   sourceAmount: BigNumber | string | number,
   sharedSecret: Buffer,
@@ -306,7 +309,10 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
   plugin = convert(plugin)
   const debug = Debug('ilp-psk2:chunkedPayment')
 
-  console.warn('PSK2 Chunked Payments are experimental. Money can be lost if an error occurs mid-payment or if the exchange rate changes dramatically! This should not be used for payments that are significantly larger than the path\'s Maximum Payment Size.')
+  if (!warnedUserAboutChunkedPayments) {
+    console.warn('WARNING: PSK2 Chunked Payments are experimental. Money can be lost if an error occurs mid-payment or if the exchange rate changes dramatically! This should not be used for payments that are significantly larger than the path\'s Maximum Payment Size.')
+    warnedUserAboutChunkedPayments = true
+  }
 
   let amountSent = new BigNumber(0)
   let amountDelivered = new BigNumber(0)

@@ -538,9 +538,10 @@ describe('Sender', function () {
           chunksRejected: 0
         })
       })
-    })
 
-    it.skip('should handle changing exchange rates')
+      it.skip('should handle changing exchange rates')
+      it.skip('should handle rounding errors and try to hit the destination amount exactly')
+    })
   })
 })
 

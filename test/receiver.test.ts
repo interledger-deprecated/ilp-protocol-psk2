@@ -356,7 +356,7 @@ describe('Receiver', function () {
       assert.typeOf(spy.args[0][0].reject, 'function')
       assert.typeOf(spy.args[0][0].acceptSingleChunk, 'function')
       assert.typeOf(spy.args[0][0].rejectSingleChunk, 'function')
-      assert.typeOf(spy.args[0][0].paymentId, 'string')
+      assert(Buffer.isBuffer(spy.args[0][0].id))
     })
 
     it('should accept the next chunks if the receiver calls accpet', async function () {
@@ -411,7 +411,7 @@ describe('Receiver', function () {
 
       assert.equal(spy.callCount, 1)
       assert.deepEqual(spy.args[0][0], {
-        id: '00000000000000000000000000000000',
+        id: Buffer.alloc(16),
         chunksFulfilled: 3,
         chunksRejected: 0,
         expectedAmount: '500',

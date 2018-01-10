@@ -97,7 +97,7 @@ describe('Sender', function () {
         destinationAccount: 'test.receiver'
       })
 
-      assert.equal(result.id, PAYMENT_ID.toString('hex'))
+      assert.deepEqual(result.id, PAYMENT_ID)
       assert.equal(result.destinationAmount, '5')
       assert.equal(result.sourceAmount, '10')
     })
@@ -295,7 +295,7 @@ describe('Sender', function () {
         minDestinationAmount: '50'
       })
 
-      assert.equal(result.id, PAYMENT_ID.toString('hex'))
+      assert.deepEqual(result.id, PAYMENT_ID)
       assert.equal(result.sourceAmount, '100')
       assert.equal(result.destinationAmount, '55')
       assert.equal(result.chunksFulfilled, 1)
@@ -475,7 +475,7 @@ describe('Sender', function () {
         })
 
         assert.deepEqual(result, {
-          id: PAYMENT_ID.toString('hex'),
+          id: PAYMENT_ID,
           sourceAmount: '2000',
           destinationAmount: '1000',
           chunksFulfilled: 2,
@@ -531,7 +531,7 @@ describe('Sender', function () {
         })
 
         assert.deepEqual(result, {
-          id: PAYMENT_ID.toString('hex'),
+          id: PAYMENT_ID,
           sourceAmount: '2000',
           destinationAmount: '1000',
           chunksFulfilled: 2,

@@ -23,7 +23,7 @@ export interface PaymentHandler {
 }
 
 export interface PaymentHandlerParams {
-  paymentId: string,
+  id: Buffer,
   expectedAmount: string,
   accept: () => Promise<PaymentReceived>,
   reject: (message: string) => void,
@@ -32,7 +32,7 @@ export interface PaymentHandlerParams {
 }
 
 export interface PaymentReceived {
-  id: string,
+  id: Buffer,
   receivedAmount: string,
   expectedAmount: string,
   chunksFulfilled: number
@@ -109,7 +109,7 @@ export class Receiver {
   }
 
   protected async defaultPaymentHandler (params: PaymentHandlerParams): Promise<void> {
-    debug(`Receiver has no handler registered, rejecting payment ${params.paymentId}`)
+    debug(`Receiver has no handler registered, rejecting payment ${params.id.toString('hex')}`)
     return params.reject('Receiver has no payment handler registered')
   }
 
@@ -224,7 +224,7 @@ export class Receiver {
         try {
           await Promise.resolve(this.paymentHandler({
             // TODO include first chunk data
-            paymentId,
+            id: request.paymentId,
             expectedAmount: record.expected.toString(10),
             accept: async (): Promise<PaymentReceived> => {
               userCalledAcceptOrReject = true
@@ -302,7 +302,7 @@ export class Receiver {
     if (record.received.gte(record.expected) || request.type === constants.TYPE_LAST_CHUNK) {
       record.finished = true
       record.finishedPromise.resolve({
-        id: paymentId,
+        id: request.paymentId,
         receivedAmount: record.received.toString(10),
         expectedAmount: record.expected.toString(10),
         chunksFulfilled: record.chunksFulfilled,

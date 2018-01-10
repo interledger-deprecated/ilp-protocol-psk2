@@ -31,9 +31,41 @@ export interface QuoteDestinationParams {
 }
 
 export interface QuoteResult {
-  id: string,
+  id: Buffer,
   sourceAmount: string,
   destinationAmount: string
+}
+
+export interface SendSingleChunkParams {
+  sourceAmount: BigNumber | string | number,
+  sharedSecret: Buffer,
+  destinationAccount: string,
+  minDestinationAmount?: BigNumber | string | number,
+  id?: Buffer,
+  sequence?: number,
+  lastChunk?: boolean
+}
+
+export interface SendResult {
+  id: Buffer,
+  sourceAmount: string,
+  destinationAmount: string,
+  chunksFulfilled: number,
+  chunksRejected: number
+}
+
+export interface SendSourceParams {
+  sourceAmount: BigNumber | string | number,
+  sharedSecret: Buffer,
+  destinationAccount: string,
+  id?: Buffer
+}
+
+export interface SendDestinationParams {
+  destinationAmount: BigNumber | string | number,
+  sharedSecret: Buffer,
+  destinationAccount: string,
+  id?: Buffer
 }
 
 export async function quoteSourceAmount (plugin: PluginV2 | PluginV1, params: QuoteSourceParams) {
@@ -144,28 +176,10 @@ async function quote (
     quotedDestinationAmount = new BigNumber(destinationAmount as BigNumber)
   }
   return {
-    id: id.toString('hex'),
+    id,
     sourceAmount: quotedSourceAmount.toString(10),
     destinationAmount: quotedDestinationAmount.toString(10)
   }
-}
-
-export interface SendSingleChunkParams {
-  sourceAmount: BigNumber | string | number,
-  sharedSecret: Buffer,
-  destinationAccount: string,
-  minDestinationAmount?: BigNumber | string | number,
-  id?: Buffer,
-  sequence?: number,
-  lastChunk?: boolean
-}
-
-export interface SendResult {
-  id: string,
-  sourceAmount: string,
-  destinationAmount: string,
-  chunksFulfilled: number,
-  chunksRejected: number
 }
 
 export async function sendSingleChunk (plugin: any, params: SendSingleChunkParams): Promise<SendResult> {
@@ -257,7 +271,7 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
 
   return {
     // TODO should this be a buffer or string?
-    id: id.toString('hex'),
+    id,
     sourceAmount: new BigNumber(sourceAmount).toString(10),
     destinationAmount: amountArrived.toString(10),
     chunksFulfilled: 1,
@@ -265,23 +279,9 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
   }
 }
 
-export interface SendSourceParams {
-  sourceAmount: BigNumber | string | number,
-  sharedSecret: Buffer,
-  destinationAccount: string,
-  id?: Buffer
-}
-
 export async function sendSourceAmount (plugin: any, params: SendSourceParams): Promise<SendResult> {
   assert(params.sourceAmount, 'sourceAmount is required')
   return sendChunkedPayment(plugin, params)
-}
-
-export interface SendDestinationParams {
-  destinationAmount: BigNumber | string | number,
-  sharedSecret: Buffer,
-  destinationAccount: string,
-  id?: Buffer
 }
 
 export async function sendDestinationAmount (plugin: any, params: SendDestinationParams): Promise<SendResult> {
@@ -296,7 +296,6 @@ interface ChunkedPaymentParams {
   destinationAmount?: BigNumber | string | number,
   id?: Buffer
 }
-
 // TODO accept user data also
 async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): Promise<SendResult> {
   const {
@@ -479,7 +478,7 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
   debug(`sent payment. source amount: ${amountSent.toString(10)}, destination amount: ${amountDelivered.toString(10)}, number of chunks: ${sequence + 1}`)
 
   return {
-    id: id.toString('hex'),
+    id,
     sourceAmount: amountSent.toString(10),
     destinationAmount: amountDelivered.toString(10),
     chunksFulfilled,

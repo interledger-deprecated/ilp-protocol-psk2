@@ -47,6 +47,7 @@ export async function quoteSourceAmount (plugin: PluginV2 | PluginV1, params: Qu
   assert(sourceAmount.isInteger(), 'sourceAmount must be an integer')
   assert(sharedSecret, 'sharedSecret is required')
   assert(sharedSecret.length >= 32, 'sharedSecret must be at least 32 bytes')
+  /* tslint:disable-next-line:strict-type-predicates */
   assert(destinationAccount && typeof destinationAccount === 'string', 'destinationAccount is required')
   assert((Buffer.isBuffer(id) && id.length === 16), 'id must be a 16-byte buffer')
   return quote(plugin, sharedSecret, id, destinationAccount, sourceAmount, undefined)
@@ -63,6 +64,7 @@ export async function quoteDestinationAmount (plugin: PluginV2 | PluginV1, param
   assert(destinationAmount.isInteger(), 'destinationAmount must be an integer')
   assert(sharedSecret, 'sharedSecret is required')
   assert(sharedSecret.length >= 32, 'sharedSecret must be at least 32 bytes')
+  /* tslint:disable-next-line:strict-type-predicates */
   assert(destinationAccount && typeof destinationAccount === 'string', 'destinationAccount is required')
   assert((Buffer.isBuffer(id) && id.length === 16), 'id must be a 16-byte buffer if supplied')
   return quote(plugin, sharedSecret, id, destinationAccount, undefined, destinationAmount)
@@ -216,11 +218,13 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
     throw err
   }
 
-  let fulfillmentInfo
+  let fulfillmentInfo: IlpPacket.IlpFulfill
   if (parsed.type === IlpPacket.Type.TYPE_ILP_FULFILL) {
+    /* tslint:disable-next-line:no-unnecessary-type-assertion */
     fulfillmentInfo = parsed.data as IlpPacket.IlpFulfill
   } else if (parsed.type === IlpPacket.Type.TYPE_ILP_REJECT) {
-    const rejection = parsed.data as IlpPacket.IlpRejection
+    /* tslint:disable-next-line:no-unnecessary-type-assertion */
+    const rejection: IlpPacket.IlpRejection = parsed.data as IlpPacket.IlpRejection
     // TODO throw specific error if the receiver says they received too little
     // TODO use ILP error code string
     debug('error sending payment:', JSON.stringify(rejection))
@@ -418,6 +422,7 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
     }
 
     if (parsed.type === IlpPacket.Type.TYPE_ILP_FULFILL) {
+      /* tslint:disable-next-line:no-unnecessary-type-assertion */
       const fulfill = parsed.data as IlpPacket.IlpFulfill
 
       if (!fulfillment.equals(fulfill.fulfillment)) {
@@ -439,6 +444,7 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
         sequence++
       }
     } else if (parsed.type === IlpPacket.Type.TYPE_ILP_REJECT) {
+      /* tslint:disable-next-line:no-unnecessary-type-assertion */
       const rejection = parsed.data as IlpPacket.IlpRejection
       if (rejection.code === 'F99') {
         // Handle if the receiver rejects the transfer with a PSK packet

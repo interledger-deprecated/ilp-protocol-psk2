@@ -35,7 +35,7 @@ mock.reRequire('../src/sender')
 import * as sender from '../src/sender'
 import * as encoding from '../src/encoding'
 import { createReceiver } from '../src/receiver'
-import { PaymentHandlerParams } from '../src/index';
+import { PaymentHandlerParams } from '../src/index'
 
 describe('Sender', function () {
   beforeEach(function () {

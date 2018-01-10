@@ -36,5 +36,8 @@ jobs:
       # run tests!
       - run: npm test
 
+      # lint
+      - run: npm run lint
+
       # upload coverage to codecov.io
       - run: npm run codecov

@@ -44,18 +44,6 @@ export interface ReceiverOpts {
   secret?: Buffer
 }
 
-export async function createReceiver (opts: ReceiverOpts): Promise<Receiver> {
-  const {
-    plugin,
-    paymentHandler,
-    secret = crypto.randomBytes(32)
-  } = opts
-  const receiver = new Receiver(plugin, secret)
-  receiver.registerPaymentHandler(paymentHandler)
-  await receiver.connect()
-  return receiver
-}
-
 export class Receiver {
   protected plugin: PluginV2
   protected secret: Buffer
@@ -102,6 +90,7 @@ export class Receiver {
 
   registerPaymentHandler (handler: PaymentHandler): void {
     debug('registered payment handler')
+    /* tslint:disable-next-line:strict-type-predicates */
     assert(typeof handler === 'function', 'payment handler must be a function')
     this.paymentHandler = handler
   }
@@ -340,6 +329,18 @@ export class Receiver {
       data: response
     })
   }
+}
+
+export async function createReceiver (opts: ReceiverOpts): Promise<Receiver> {
+  const {
+    plugin,
+    paymentHandler,
+    secret = crypto.randomBytes(32)
+  } = opts
+  const receiver = new Receiver(plugin, secret)
+  receiver.registerPaymentHandler(paymentHandler)
+  await receiver.connect()
+  return receiver
 }
 
 function parseAccount (destinationAccount: string): { destinationAccount: string, receiverId: string, token: Buffer } {

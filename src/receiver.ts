@@ -19,7 +19,7 @@ const TOKEN_LENGTH = 18
 const SHARED_SECRET_LENGTH = 32
 
 export interface PaymentHandler {
-  (params: PaymentHandlerParams): Promise<void>
+  (params: PaymentHandlerParams): void | Promise<void>
 }
 
 export interface PaymentHandlerParams {

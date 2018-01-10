@@ -6,6 +6,7 @@ import mock = require('mock-require')
 import BigNumber from 'bignumber.js'
 import * as IlpPacket from 'ilp-packet'
 import MockPlugin from './mocks/plugin'
+import * as ILDCP from 'ilp-protocol-ildcp'
 
 const SHARED_SECRET = Buffer.alloc(32, 0)
 const PAYMENT_ID = Buffer.from('465736837f790f773baafd63828f38b6', 'hex')
@@ -33,9 +34,13 @@ mock.reRequire('../src/encoding')
 mock.reRequire('../src/sender')
 import * as sender from '../src/sender'
 import * as encoding from '../src/encoding'
+import { createReceiver } from '../src/receiver'
+import { PaymentHandlerParams } from '../src/index';
 
 describe('Sender', function () {
   beforeEach(function () {
+    this.setInterval = setInterval
+    this.clearInterval = clearInterval
     this.clock = sinon.useFakeTimers(0)
     this.plugin = new MockPlugin(0.5)
   })
@@ -437,6 +442,105 @@ describe('Sender', function () {
       assert(false, 'should not get here')
     })
 
+  })
+
+  describe('Chunked Payments', function () {
+    beforeEach(async function () {
+      this.sendDataStub = sinon.stub(this.plugin, 'sendData')
+        .onFirstCall()
+        .resolves(ILDCP.serializeIldcpResponse({
+          clientAddress: 'test.receiver',
+          assetScale: 9,
+          assetCode: 'ABC'
+        }))
+        .callThrough()
+
+      this.receiver = await createReceiver({
+        plugin: this.plugin,
+        paymentHandler: (params: PaymentHandlerParams) => {
+          params.accept()
+        }
+      })
+      const { destinationAccount, sharedSecret } = this.receiver.generateAddressAndSecret()
+      this.destinationAccount = destinationAccount
+      this.sharedSecret = sharedSecret
+    })
+
+    describe('sendSourceAmount', function () {
+      it('should send chunks until the source amount has been sent', async function () {
+        const result = await sender.sendSourceAmount(this.plugin, {
+          sharedSecret: this.sharedSecret,
+          destinationAccount: this.destinationAccount,
+          sourceAmount: 2000
+        })
+
+        assert.deepEqual(result, {
+          id: PAYMENT_ID.toString('hex'),
+          sourceAmount: '2000',
+          destinationAmount: '1000',
+          chunksFulfilled: 2,
+          chunksRejected: 0
+        })
+      })
+
+      it('should increase the chunk size with each fulfilled chunk but reduce the last one to hit the sourceAmount exactly', async function () {
+        await sender.sendSourceAmount(this.plugin, {
+          sharedSecret: this.sharedSecret,
+          destinationAccount: this.destinationAccount,
+          sourceAmount: '2500'
+        })
+
+        assert.deepInclude(IlpPacket.deserializeIlpPrepare(this.sendDataStub.args[1][0]), { amount: '1000' })
+        assert.deepInclude(IlpPacket.deserializeIlpPrepare(this.sendDataStub.args[2][0]), { amount: '1100' })
+        assert.deepInclude(IlpPacket.deserializeIlpPrepare(this.sendDataStub.args[3][0]), { amount: '400' })
+      })
+
+      it('should decrease the chunk size and try again if it gets a temporary error', async function () {
+        const interval = this.setInterval(() => {
+          this.clock.runAll()
+        }, 1)
+        this.sendDataStub.onThirdCall().resolves(IlpPacket.serializeIlpReject({
+          code: 'T00',
+          triggeredBy: 'test.connector',
+          message: '',
+          data: Buffer.alloc(0)
+        }))
+
+        await sender.sendSourceAmount(this.plugin, {
+          sharedSecret: this.sharedSecret,
+          destinationAccount: this.destinationAccount,
+          sourceAmount: '2500'
+        })
+
+        assert.deepInclude(IlpPacket.deserializeIlpPrepare(this.sendDataStub.args[1][0]), { amount: '1000' })
+        assert.deepInclude(IlpPacket.deserializeIlpPrepare(this.sendDataStub.args[2][0]), { amount: '1100' }) // this one fails
+        assert.deepInclude(IlpPacket.deserializeIlpPrepare(this.sendDataStub.args[3][0]), { amount: '550' })
+        assert.deepInclude(IlpPacket.deserializeIlpPrepare(this.sendDataStub.args[4][0]), { amount: '605' })
+        assert.deepInclude(IlpPacket.deserializeIlpPrepare(this.sendDataStub.args[5][0]), { amount: '345' })
+
+        this.clearInterval(interval)
+      })
+    })
+
+    describe('sendDestinationAmount', function () {
+      it('should send chunks until the destination amount has been sent', async function () {
+        const result = await sender.sendDestinationAmount(this.plugin, {
+          sharedSecret: this.sharedSecret,
+          destinationAccount: this.destinationAccount,
+          destinationAmount: 1000
+        })
+
+        assert.deepEqual(result, {
+          id: PAYMENT_ID.toString('hex'),
+          sourceAmount: '2000',
+          destinationAmount: '1000',
+          chunksFulfilled: 2,
+          chunksRejected: 0
+        })
+      })
+    })
+
+    it.skip('should handle changing exchange rates')
   })
 })
 

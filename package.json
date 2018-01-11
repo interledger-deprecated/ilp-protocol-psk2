@@ -10,7 +10,7 @@
     "lint": "tslint --project .",
     "codecov": "codecov",
     "doc": "typedoc src",
-    "publish-docs": "npm run doc && gh-pages --dist doc --message \"[skip ci] Publish docs\""
+    "publish-docs": "npm run doc && node scripts/publish-docs.js"
   },
   "repository": {
     "type": "git",

@@ -3,9 +3,8 @@ dist
 .vscode
 coverage
 **/*.js
+!scripts/*.js
 **/*.js.map
 **/*.d.ts
 .nyc_output
-!wallaby.js
 doc
-!typedoc.js

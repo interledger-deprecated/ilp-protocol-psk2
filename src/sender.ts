@@ -338,7 +338,7 @@ async function quote (
  */
 export async function sendSingleChunk (plugin: any, params: SendSingleChunkParams | SendSingleChunkAdvancedParams): Promise<SendResult> {
   plugin = convert(plugin)
-  const debug = Debug('ilp-psk2:singleChunk')
+  const debug = Debug('ilp-psk2:sendSingleChunk')
   const {
     sourceAmount,
     sharedSecret,
@@ -346,21 +346,20 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
     minDestinationAmount = 0
   } = params
 
-  // These parameters are only set if the user uses the "advanced" way, which gives them more control
-  let id: Buffer
-  let sequence: number
-  let lastChunk: boolean
-  if (params as SendSingleChunkAdvancedParams) {
-    const advanced = params as SendSingleChunkAdvancedParams
-    id = advanced.id
-    sequence = advanced.sequence
-    lastChunk = advanced.lastChunk
-  } else {
-    // Defaults
-    id = crypto.randomBytes(16)
-    sequence = 0
-    lastChunk = true
+  function isAdvanced (params: SendSingleChunkParams | SendSingleChunkAdvancedParams): params is SendSingleChunkAdvancedParams {
+    /* tslint:disable-next-line */
+    return (params as SendSingleChunkAdvancedParams).id !== undefined
   }
+  const {
+    id,
+    sequence,
+    lastChunk
+  } = (isAdvanced(params) ? params : {
+    // Defaults
+    id: crypto.randomBytes(16),
+    sequence: 0,
+    lastChunk: true
+  })
 
   assert(sharedSecret, 'sharedSecret is required')
   assert(sharedSecret.length >= 32, 'sharedSecret must be at least 32 bytes')

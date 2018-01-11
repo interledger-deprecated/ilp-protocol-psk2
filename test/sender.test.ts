@@ -97,7 +97,6 @@ describe('Sender', function () {
         destinationAccount: 'test.receiver'
       })
 
-      assert.deepEqual(result.id, PAYMENT_ID)
       assert.equal(result.destinationAmount, '5')
       assert.equal(result.sourceAmount, '10')
     })

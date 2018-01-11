@@ -6,13 +6,7 @@ version: 2
 jobs:
   build:
     docker:
-      # specify the version you desire here
       - image: circleci/node:8
-
-      # Specify service dependencies here if necessary
-      # CircleCI maintains a library of pre-built images
-      # documented at https://circleci.com/docs/2.0/circleci-images/
-      # - image: circleci/mongo:3.4.4
 
     working_directory: ~/repo
 
@@ -32,10 +26,8 @@ jobs:
           paths:
             - node_modules
           key: v1-dependencies-{{ checksum "package.json" }}
-  test:
-    branches:
-      ignore: gh-pages
 
+  test:
     docker:
       - image: circleci/node:8
 
@@ -52,10 +44,6 @@ jobs:
       - run: npm run codecov
 
   deploy-docs:
-    branches:
-      only:
-        - master
-
     docker:
       - image: circleci/node:8
 
@@ -68,4 +56,21 @@ jobs:
       # deploy docs to github pages
       - run: ghpages -d doc
 
+workflows:
+  version: 2
+  build-test-deploy:
+    jobs:
+      - build
+      - test
+        requires:
+          - build
+        branches:
+          ignore:
+            - gh-pages
+      - deploy-docs
+        requires:
+          - build
+        branches:
+          only:
+            - master
 

@@ -33,6 +33,9 @@ jobs:
             - node_modules
           key: v1-dependencies-{{ checksum "package.json" }}
   test:
+    branches:
+      ignore: gh-pages
+
     docker:
       - image: circleci/node:8
 
@@ -49,6 +52,10 @@ jobs:
       - run: npm run codecov
 
   deploy-docs:
+    branches:
+      only:
+        - master
+
     docker:
       - image: circleci/node:8
 
@@ -60,23 +67,4 @@ jobs:
 
         # deploy docs to github pages
         - run: ghpages -d doc
-
-workflows:
-  version: 2
-  build-deploy:
-    jobs:
-      - build
-      - test
-          requires:
-            - build
-          filters:
-            branches:
-              not: gh-pages
-      - deploy-docs:
-          requires:
-            - build
-          filters:
-            branches:
-              only: master
-
 

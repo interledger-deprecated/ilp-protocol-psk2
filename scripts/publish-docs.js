@@ -4,7 +4,7 @@ const fs = require('fs')
 console.log('Publishing docs to Github Pages...')
 
 // Disable Jekyll from parsing docs (because it doesn't like files that start with '_')
-fs.writeFileSync('doc/.nojekyll', 'Disable Jekyll')
+fs.writeFileSync('doc/.nojekyll', 'Disable Jekyll\n')
 
 ghpages.publish('doc', {
   src: ['**/*', '.nojekyll'],

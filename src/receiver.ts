@@ -3,7 +3,7 @@
 import * as assert from 'assert'
 import * as crypto from 'crypto'
 import * as Debug from 'debug'
-const debug = Debug('ilp-psk2:receiver')
+const debug = Debug('ilp-protocol-psk2:receiver')
 import BigNumber from 'bignumber.js'
 import { default as convertToV2Plugin, PluginV1, PluginV2 } from 'ilp-compat-plugin'
 import IlpPacket = require('ilp-packet')
@@ -399,7 +399,7 @@ export class Receiver {
  *
  * @example <caption>Creating a Receiver</caption>
  * ```typescript
- * import { createReceiver } from 'ilp-psk2'
+ * import { createReceiver } from 'ilp-protocol-psk2'
  * const receiver = await createReceiver({
  *   plugin: myLedgerPlugin,
  *   paymentHandler: async (params) => {

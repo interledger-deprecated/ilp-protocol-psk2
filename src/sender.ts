@@ -205,7 +205,7 @@ async function quote (
   destinationAmount?: BigNumber
 ): Promise<QuoteResult> {
   plugin = convert(plugin)
-  const debug = Debug('ilp-psk2:quote')
+  const debug = Debug('ilp-protocol-psk2:quote')
 
   const sequence = 0
   const data = serializePskPacket(
@@ -282,7 +282,7 @@ async function quote (
  *
  * @example <caption>One-off payment</caption>
  * ```typescript
- *   import { sendSingleChunk, quoteDestinationAmount } from 'ilp-psk2'
+ *   import { sendSingleChunk, quoteDestinationAmount } from 'ilp-protocol-psk2'
  *
  *   // These values must be communicated beforehand for the sender to send a payment
  *   const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()
@@ -305,7 +305,7 @@ async function quote (
  * @example <caption>Streaming payments</caption>
  * ```typescript
  *   import { randomBytes } from 'crypto'
- *   import { sendSingleChunk } from 'ilp-psk2'
+ *   import { sendSingleChunk } from 'ilp-protocol-psk2'
  *
  *   // These values must be communicated beforehand for the sender to send a payment
  *   const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()
@@ -338,7 +338,7 @@ async function quote (
  */
 export async function sendSingleChunk (plugin: any, params: SendSingleChunkParams | SendSingleChunkAdvancedParams): Promise<SendResult> {
   plugin = convert(plugin)
-  const debug = Debug('ilp-psk2:sendSingleChunk')
+  const debug = Debug('ilp-protocol-psk2:sendSingleChunk')
   const {
     sourceAmount,
     sharedSecret,
@@ -491,7 +491,7 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
   assert(destinationAccount, 'destinationAccount is required')
   assert((Buffer.isBuffer(id) && id.length === 16), 'id must be a 16-byte buffer if supplied')
   plugin = convert(plugin)
-  const debug = Debug('ilp-psk2:chunkedPayment')
+  const debug = Debug('ilp-protocol-psk2:chunkedPayment')
 
   if (!warnedUserAboutChunkedPayments) {
     console.warn('WARNING: PSK2 Chunked Payments are experimental. Money can be lost if an error occurs mid-payment or if the exchange rate changes dramatically! This should not be used for payments that are significantly larger than the path\'s Maximum Payment Size.')

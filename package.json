@@ -9,7 +9,8 @@
     "test": "nyc mocha",
     "lint": "tslint --project .",
     "codecov": "codecov",
-    "doc": "typedoc src"
+    "doc": "typedoc src",
+    "publish-docs": "npm run doc && gh-pages --dist doc --message \"[skip ci] Publish docs\""
   },
   "repository": {
     "type": "git",

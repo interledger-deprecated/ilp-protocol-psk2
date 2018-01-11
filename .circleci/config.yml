@@ -40,20 +40,10 @@ jobs:
       # upload coverage to codecov.io
       - run: npm run codecov
 
-  deploy-docs:
-    branches:
-      only:
-        - master
-
-    docker:
-      - image: circleci/node:8
-
-    working_directory: ~/repo
-
-    steps:
-      # generate docs
-      - run: npm run doc
-
-      # deploy docs to github pages
-      - run: ghpages -d doc
+      # deploy docs if we're on the master branch
+      - run: |
+        if [ $(git rev-parse --abbrev-ref HEAD) = "master" ]
+        then
+          npm run publish-docs
+        fi
 

@@ -50,7 +50,7 @@ jobs:
 
       - add_ssh_keys
 
-      - run npm run publish-docs
+      - run: npm run publish-docs
 
 workflows:
   version: 2

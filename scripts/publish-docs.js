@@ -5,6 +5,7 @@ console.log('Publishing docs to Github Pages...')
 ghpages.publish('doc', {
   src: ['**/*', '\.nojekyll'],
   message: 'docs: [skip ci] Publish docs',
+  repo: 'git@github.com:emschwartz/ilp-protocol-psk2.git',
   user: {
     name: 'CircleCI',
     email: 'none'

@@ -42,6 +42,5 @@ jobs:
 
       # deploy docs if we're on the master branch
       - run:
-        name: Publish Docs (only on master branch)
-        command: if [ $(git rev-parse --abbrev-ref HEAD) = "master" ]; then npm run publish-docs; fi;
-
+          name: Publish Docs (only on master branch)
+          command: if [ $(git rev-parse --abbrev-ref HEAD) = "master" ]; then npm run publish-docs; fi;

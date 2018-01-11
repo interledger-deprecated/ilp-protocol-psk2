@@ -59,12 +59,13 @@ jobs:
     docker:
       - image: circleci/node:8
 
-      - working_directory: ~/repo
+    working_directory: ~/repo
 
-      - steps:
-        # generate docs
-        - run: npm run doc
+    steps:
+      # generate docs
+      - run: npm run doc
 
-        # deploy docs to github pages
-        - run: ghpages -d doc
+      # deploy docs to github pages
+      - run: ghpages -d doc
+
 

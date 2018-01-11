@@ -1,7 +1,8 @@
 const ghpages = require('gh-pages')
 
 ghpages.publish('doc', {
-  message: '[skip ci] Publish docs',
+  src: '**/*|\.nojekyll',
+  message: 'docs: [skip ci] Publish docs',
   user: {
     name: 'CircleCI',
     email: 'none'

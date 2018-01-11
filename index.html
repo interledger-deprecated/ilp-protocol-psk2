@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>ilp-psk2</title>
+	<title>ilp-protocol-psk2</title>
 	<meta name="description" content="">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="assets/css/main.css">
@@ -22,7 +22,7 @@
 						<li class="state loading">Preparing search index...</li>
 						<li class="state failure">The search index is not available</li>
 					</ul>
-					<a href="index.html" class="title">ilp-psk2</a>
+					<a href="index.html" class="title">ilp-protocol-psk2</a>
 				</div>
 				<div class="table-cell" id="tsd-widgets">
 					<div id="tsd-filter">
@@ -56,7 +56,7 @@
 					<a href="globals.html">Globals</a>
 				</li>
 			</ul>
-			<h1> ilp-psk2</h1>
+			<h1> ilp-protocol-psk2</h1>
 		</div>
 	</div>
 </header>
@@ -65,10 +65,97 @@
 		<div class="col-8 col-content">
 			<div class="tsd-panel tsd-typography">
 				<h1 id="pskv2">PSKv2</h1>
-				<p><a href="https://circleci.com/gh/emschwartz/ilp-psk2"><img src="https://circleci.com/gh/emschwartz/ilp-psk2.svg?style=shield" alt="CircleCI"></a>
-					<a href="https://codecov.io/gh/emschwartz/ilp-psk2"><img src="https://codecov.io/gh/emschwartz/ilp-psk2/branch/master/graph/badge.svg" alt="codecov"></a>
+				<blockquote>
+					<p>Javascript implementation of the <a href="https://github.com/interledger/rfcs/pull/351">Pre-Shared Key V2</a> Interledger Transport Protocol.</p>
+				</blockquote>
+				<p><a href="https://circleci.com/gh/emschwartz/ilp-protocol-psk2"><img src="https://circleci.com/gh/emschwartz/ilp-protocol-psk2.svg?style=shield" alt="CircleCI"></a>
+					<a href="https://codecov.io/gh/emschwartz/ilp-protocol-psk2"><img src="https://codecov.io/gh/emschwartz/ilp-protocol-psk2/branch/master/graph/badge.svg" alt="codecov"></a>
 				<a href="https://standardjs.com"><img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="JavaScript Style Guide"></a></p>
-				<p>Javascript implementation of the <a href="https://github.com/interledger/rfcs/pull/351">Pre-Shared Key V2</a> Interledger Transport Protocol. This can be used to send and receive individual, streaming, and chunked payments as well as end-to-end quotes.</p>
+				<h2 id="features">Features</h2>
+				<ul>
+					<li>End-to-End Quoting</li>
+					<li>Single Payments</li>
+					<li>Streaming Payments</li>
+					<li><strong>(Experimental)</strong> Chunked Payments</li>
+				</ul>
+				<h2 id="installation">Installation</h2>
+				<pre><code class="lang-shell">npm install ilp-protocol-psk2
+</code></pre>
+				<h2 id="api-documentation">API Documentation</h2>
+				<p>See <a href="https://emschwartz.github.io/ilp-protocol-psk2">https://emschwartz.github.io/ilp-protocol-psk2</a></p>
+				<h2 id="usage">Usage</h2>
+				<h3 id="creating-a-receiver">Creating a Receiver</h3>
+				<p>Uses <a href="https://emschwartz.github.io/ilp-protocol-psk2/modules/_receiver_.html#createreceiver"><code>createReceiver</code></a> and <a href="https://emschwartz.github.io/ilp-protocol-psk2/classes/_receiver_.receiver.html#generateaddressandsecret"><code>Receiver.generateAddressAndSecret</code></a>.</p>
+				<pre><code class="lang-typescript"><span class="hljs-keyword">import</span> { createReceiver } <span class="hljs-keyword">from</span> <span class="hljs-string">'ilp-protocol-psk2'</span>
+<span class="hljs-keyword">const</span> receiver = <span class="hljs-keyword">await</span> createReceiver({
+  plugin: myLedgerPlugin,
+  paymentHandler: <span class="hljs-keyword">async</span> (params) =&gt; {
+    <span class="hljs-comment">// Accept all incoming payments</span>
+    <span class="hljs-keyword">const</span> result = <span class="hljs-keyword">await</span> params.accept()
+    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Got payment for:'</span>, result.receivedAmount)
+  }
+})
+
+<span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
+<span class="hljs-comment">// Give these two values to a sender to enable them to send payments to this Receiver</span>
+</code></pre>
+				<h3 id="sending-a-single-payment">Sending a Single Payment</h3>
+				<p>Uses <a href="https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk"><code>sendSingleChunk</code></a> and <a href="https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#quotedestinationamount"><code>quoteDestinationAmount</code></a>.</p>
+				<pre><code class="lang-typescript"><span class="hljs-keyword">import</span> { sendSingleChunk, quoteDestinationAmount } <span class="hljs-keyword">from</span> <span class="hljs-string">'ilp-protocol-psk2'</span>
+
+<span class="hljs-comment">// These values must be communicated beforehand for the sender to send a payment</span>
+<span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = <span class="hljs-keyword">await</span> getAddressAndSecretFromReceiver()
+
+<span class="hljs-keyword">const</span> { sourceAmount } = <span class="hljs-keyword">await</span> quoteDestinationAmount(myLedgerPlugin, {
+  destinationAccount,
+  sharedSecret,
+  destinationAmount: <span class="hljs-string">'1000'</span>
+})
+
+<span class="hljs-keyword">const</span> result = <span class="hljs-keyword">await</span> sendSingleChunk(myLedgerPlugin, {
+  destinationAccount,
+  sharedSecret,
+  sourceAmount,
+  minDestinationAmount: <span class="hljs-string">'999'</span>
+})
+<span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Sent payment of <span class="hljs-subst">${result.sourceAmount}</span>, receiver got <span class="hljs-subst">${result.destinationAmount}</span>`</span>)
+</code></pre>
+				<h3 id="sending-a-streaming-payment">Sending a Streaming Payment</h3>
+				<p>Uses <a href="https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk"><code>sendSingleChunk</code></a>.</p>
+				<pre><code class="lang-typescript"><span class="hljs-keyword">import</span> { randomBytes } <span class="hljs-keyword">from</span> <span class="hljs-string">'crypto'</span>
+<span class="hljs-keyword">import</span> { sendSingleChunk } <span class="hljs-keyword">from</span> <span class="hljs-string">'ilp-protocol-psk2'</span>
+
+<span class="hljs-comment">// These values must be communicated beforehand for the sender to send a payment</span>
+<span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = <span class="hljs-keyword">await</span> getAddressAndSecretFromReceiver
+
+<span class="hljs-keyword">const</span> id = randomBytes(<span class="hljs-number">16</span>)
+<span class="hljs-keyword">let</span> sequence = <span class="hljs-number">0</span>
+<span class="hljs-keyword">const</span> firstChunkResult = <span class="hljs-keyword">await</span> sendSingleChunk(myLedgerPlugin, {
+  destinationAccount,
+  sharedSecret,
+  sourceAmount,
+  minDestinationAmount: <span class="hljs-string">'0'</span>,
+  id,
+  sequence,
+  lastChunk: <span class="hljs-literal">false</span>
+})
+
+<span class="hljs-comment">// Repeat as many times as desired, incrementing the sequence each time</span>
+<span class="hljs-comment">// Note that the path exchange rate can be determined by dividing the destination amount returned by the chunk amount sent</span>
+
+<span class="hljs-keyword">const</span> lastChunkResult = <span class="hljs-keyword">await</span> sendSingleChunk(myLedgerPlugin, {
+  destinationAccount,
+  sharedSecret,
+  sourceAmount,
+  minDestinationAmount: <span class="hljs-string">'0'</span>,
+  id,
+  sequence,
+  lastChunk: <span class="hljs-literal">true</span>
+})
+</code></pre>
+				<h3 id="experimental-chunked-payments">Experimental Chunked Payments</h3>
+				<p><strong>WARNING:</strong> PSK2 Chunked Payments are experimental. Money can be lost if an error occurs mid-payment or if the exchange rate changes dramatically! This should not be used for payments that are significantly larger than the path&#39;s Maximum Payment Size.</p>
+				<p>See <a href="https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsourceamount"><code>sendSourceAmount</code></a> and <a href="https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#senddestinationamount"><code>sendDestinationAmount</code></a>.</p>
 			</div>
 		</div>
 		<div class="col-4 col-menu menu-sticky-wrap menu-highlight">

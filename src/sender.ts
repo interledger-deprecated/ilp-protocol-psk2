@@ -285,7 +285,7 @@ async function quote (
  *   import { sendSingleChunk, quoteDestinationAmount } from 'ilp-psk2'
  *
  *   // These values must be communicated beforehand for the sender to send a payment
- *   const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver
+ *   const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()
  *
  *   const { sourceAmount } = await quoteDestinationAmount(myLedgerPlugin, {
  *     destinationAccount,
@@ -308,9 +308,9 @@ async function quote (
  *   import { sendSingleChunk } from 'ilp-psk2'
  *
  *   // These values must be communicated beforehand for the sender to send a payment
- *   const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver
+ *   const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()
  *
- *   const id = crypto.randomBytes(16)
+ *   const id = randomBytes(16)
  *   let sequence = 0
  *   const firstChunkResult = await sendSingleChunk(myLedgerPlugin, {
  *     destinationAccount,

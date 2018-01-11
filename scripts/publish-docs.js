@@ -1,4 +1,4 @@
-const ghpages = require('ghpages')
+const ghpages = require('gh-pages')
 
 ghpages.publish('doc', {
   message: '[skip ci] Publish docs',
@@ -6,4 +6,10 @@ ghpages.publish('doc', {
     name: 'CircleCI',
     email: 'none'
   }
+}, function (err) {
+  if (err) {
+    throw err
+  }
+
+  console.log('Published docs')
 })

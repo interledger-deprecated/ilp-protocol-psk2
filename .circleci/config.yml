@@ -23,14 +23,13 @@ jobs:
             - node_modules
           key: v1-dependencies-{{ checksum "package.json" }}
 
+      - persist_to_workspace:
+          root: ~/repo
+
   test:
-    docker:
-      - image: circleci/node:8
-
-    working_directory: ~/repo
-
     steps:
-      - checkout
+      - attach_workspace:
+          at: ~/repo
 
       # run tests!
       - run: npm test
@@ -42,13 +41,9 @@ jobs:
       - run: npm run codecov
 
   publish_docs:
-    docker:
-      - image: circleci/node:8
-
-    working_directory: ~/repo
-
     steps:
-      - checkout
+      - attach_workspace:
+          at: ~/repo
 
       - add_ssh_keys
 

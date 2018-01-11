@@ -41,9 +41,10 @@ jobs:
       - run: npm run codecov
 
       # deploy docs if we're on the master branch
-      - run: |
-        if [ $(git rev-parse --abbrev-ref HEAD) = "master" ]
-        then
-          npm run publish-docs
-        fi
+      - run:
+        command: |
+          if [ $(git rev-parse --abbrev-ref HEAD) = "master" ]
+          then
+            npm run publish-docs
+          fi
 

@@ -126,7 +126,7 @@
 <span class="hljs-keyword">import</span> { sendSingleChunk } <span class="hljs-keyword">from</span> <span class="hljs-string">'ilp-protocol-psk2'</span>
 
 <span class="hljs-comment">// These values must be communicated beforehand for the sender to send a payment</span>
-<span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = <span class="hljs-keyword">await</span> getAddressAndSecretFromReceiver
+<span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = <span class="hljs-keyword">await</span> getAddressAndSecretFromReceiver()
 
 <span class="hljs-keyword">const</span> id = randomBytes(<span class="hljs-number">16</span>)
 <span class="hljs-keyword">let</span> sequence = <span class="hljs-number">0</span>

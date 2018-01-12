@@ -9,7 +9,7 @@
     "test": "nyc mocha",
     "lint": "tslint --project .",
     "codecov": "codecov",
-    "doc": "typedoc src",
+    "doc": "typedoc --options typedoc.js src",
     "publish-docs": "npm run doc && node scripts/publish-docs.js"
   },
   "repository": {

@@ -95,6 +95,7 @@
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymenthandlerparams.html#acceptsinglechunk" class="tsd-kind-icon">accept<wbr>Single<wbr>Chunk</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymenthandlerparams.html#expectedamount" class="tsd-kind-icon">expected<wbr>Amount</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymenthandlerparams.html#id" class="tsd-kind-icon">id</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymenthandlerparams.html#prepare" class="tsd-kind-icon">prepare</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymenthandlerparams.html#reject" class="tsd-kind-icon">reject</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymenthandlerparams.html#rejectsinglechunk" class="tsd-kind-icon">reject<wbr>Single<wbr>Chunk</a></li>
 							</ul>
@@ -110,7 +111,7 @@
 					<div class="tsd-signature tsd-kind-icon">accept<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">function</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/04a67b5/src/receiver.ts#L46">receiver.ts:46</a></li>
+							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/9b4db66/src/receiver.ts#L46">receiver.ts:46</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -143,7 +144,7 @@
 					<div class="tsd-signature tsd-kind-icon">accept<wbr>Single<wbr>Chunk<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">function</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/04a67b5/src/receiver.ts#L55">receiver.ts:55</a></li>
+							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/9b4db66/src/receiver.ts#L55">receiver.ts:55</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -174,7 +175,7 @@
 					<div class="tsd-signature tsd-kind-icon">expected<wbr>Amount<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/04a67b5/src/receiver.ts#L38">receiver.ts:38</a></li>
+							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/9b4db66/src/receiver.ts#L38">receiver.ts:38</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -190,9 +191,24 @@
 					<div class="tsd-signature tsd-kind-icon">id<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/04a67b5/src/receiver.ts#L34">receiver.ts:34</a></li>
+							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/9b4db66/src/receiver.ts#L34">receiver.ts:34</a></li>
 						</ul>
 					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
+					<a name="prepare" class="tsd-anchor"></a>
+					<h3>prepare</h3>
+					<div class="tsd-signature tsd-kind-icon">prepare<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">IlpPrepare</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/9b4db66/src/receiver.ts#L64">receiver.ts:64</a></li>
+						</ul>
+					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Details about this prepared chunk; in the form of a parsed interledger packet.</p>
+						</div>
+					</div>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
 					<a name="reject" class="tsd-anchor"></a>
@@ -200,7 +216,7 @@
 					<div class="tsd-signature tsd-kind-icon">reject<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">function</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/04a67b5/src/receiver.ts#L50">receiver.ts:50</a></li>
+							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/9b4db66/src/receiver.ts#L50">receiver.ts:50</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -236,7 +252,7 @@
 					<div class="tsd-signature tsd-kind-icon">reject<wbr>Single<wbr>Chunk<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">function</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/04a67b5/src/receiver.ts#L60">receiver.ts:60</a></li>
+							<li>Defined in <a href="https://github.com/emschwartz/ilp-protocol-psk2/blob/9b4db66/src/receiver.ts#L60">receiver.ts:60</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -319,6 +335,9 @@
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-interface">
 								<a href="_receiver_.paymenthandlerparams.html#id" class="tsd-kind-icon">id</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-interface">
+								<a href="_receiver_.paymenthandlerparams.html#prepare" class="tsd-kind-icon">prepare</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-interface">
 								<a href="_receiver_.paymenthandlerparams.html#reject" class="tsd-kind-icon">reject</a>

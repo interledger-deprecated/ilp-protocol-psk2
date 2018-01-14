@@ -73,11 +73,11 @@ describe('Sender', function () {
         destinationAccount: 'test.receiver'
       })
 
-      assert(spy.calledWith(IlpPacket.serializeIlpPrepare({
+      assert.deepEqual(IlpPacket.deserializeIlpPrepare(spy.args[0][0]), {
         destination: 'test.receiver',
         amount: '10',
         executionCondition: QUOTE_CONDITION,
-        expiresAt: new Date(2000),
+        expiresAt: new Date(5000),
         data: encoding.serializePskPacket(SHARED_SECRET, {
           type: 1,
           paymentId: PAYMENT_ID,
@@ -85,7 +85,7 @@ describe('Sender', function () {
           paymentAmount: MAX_UINT64,
           chunkAmount: MAX_UINT64
         })
-      })))
+      })
 
       spy.restore()
     })
@@ -175,11 +175,11 @@ describe('Sender', function () {
         destinationAccount: 'test.receiver'
       })
 
-      assert(spy.calledWith(IlpPacket.serializeIlpPrepare({
+      assert.deepEqual(IlpPacket.deserializeIlpPrepare(spy.args[0][0]), {
         destination: 'test.receiver',
         amount: '1000',
         executionCondition: QUOTE_CONDITION,
-        expiresAt: new Date(2000),
+        expiresAt: new Date(5000),
         data: encoding.serializePskPacket(SHARED_SECRET, {
           type: 1,
           paymentId: PAYMENT_ID,
@@ -187,7 +187,7 @@ describe('Sender', function () {
           paymentAmount: MAX_UINT64,
           chunkAmount: MAX_UINT64
         })
-      })))
+      })
 
       spy.restore()
     })
@@ -229,11 +229,11 @@ describe('Sender', function () {
         minDestinationAmount: '50'
       })
 
-      assert(spy.calledWith(IlpPacket.serializeIlpPrepare({
+      assert.deepEqual(IlpPacket.deserializeIlpPrepare(spy.args[0][0]), {
         destination: 'test.receiver',
         amount: '100',
         executionCondition: Buffer.from('dbe5899c51056feae0d6b42dc8677f40a5452ca03512f058d95132c2cf5b7bf8', 'hex'),
-        expiresAt: new Date(2000),
+        expiresAt: new Date(5000),
         data: encoding.serializePskPacket(SHARED_SECRET, {
           type: 1,
           paymentId: PAYMENT_ID,
@@ -241,7 +241,7 @@ describe('Sender', function () {
           paymentAmount: MAX_UINT64,
           chunkAmount: new BigNumber(50)
         })
-      })))
+      })
 
       spy.restore()
     })
@@ -269,11 +269,11 @@ describe('Sender', function () {
         lastChunk: false
       })
 
-      assert(stub.calledWith(IlpPacket.serializeIlpPrepare({
+      assert.deepEqual(IlpPacket.deserializeIlpPrepare(stub.args[0][0]), {
         destination: 'test.receiver',
         amount: '100',
         executionCondition: Buffer.from('3b06f0bb996ebfebc485ba91418b59e99fa8b0ab610670df1c1a13c34d416c57', 'hex'),
-        expiresAt: new Date(2000),
+        expiresAt: new Date(5000),
         data: encoding.serializePskPacket(SHARED_SECRET, {
           type: 0,
           paymentId: Buffer.alloc(16, 5),
@@ -281,7 +281,7 @@ describe('Sender', function () {
           paymentAmount: MAX_UINT64,
           chunkAmount: new BigNumber(50)
         })
-      })))
+      })
 
       stub.restore()
     })

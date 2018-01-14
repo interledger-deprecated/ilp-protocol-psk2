@@ -356,6 +356,8 @@ describe('Receiver', function () {
       assert.typeOf(spy.args[0][0].reject, 'function')
       assert.typeOf(spy.args[0][0].acceptSingleChunk, 'function')
       assert.typeOf(spy.args[0][0].rejectSingleChunk, 'function')
+      assert.typeOf(spy.args[0][0].prepare, 'object')
+      assert.equal(spy.args[0][0].prepare.amount, '50')
       assert(Buffer.isBuffer(spy.args[0][0].id))
     })
 

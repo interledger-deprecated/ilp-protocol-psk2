@@ -57,7 +57,11 @@ export interface PaymentHandlerParams {
    * Alternative to `reject` that gives the user more control over the payment chunks they wish to reject.
    * If this method is called, the PaymentHandler callback will be called again for subsequent chunks with the same payment `id`.
    */
-  rejectSingleChunk: (message: string) => void
+  rejectSingleChunk: (message: string) => void,
+  /**
+   * Details about this prepared chunk; in the form of a parsed interledger packet.
+   */
+  prepare: IlpPacket.IlpPrepare
 }
 
 export interface PaymentReceived {
@@ -327,7 +331,8 @@ export class Receiver {
               record.rejectionMessage = message
               resolve()
               // TODO check that the message isn't too long
-            }
+            },
+            prepare
           }))
 
           // If the user didn't call the accept function, reject it

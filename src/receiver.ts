@@ -369,7 +369,7 @@ export class Receiver {
     record.received = record.received.plus(prepare.amount)
     if (record.received.gte(record.expected) || request.type === constants.TYPE_PSK2_LAST_CHUNK) {
       record.finished = true
-      record.finishedPromise.resolve({
+      record.finishedPromise && record.finishedPromise.resolve({
         id: request.paymentId,
         receivedAmount: record.received.toString(10),
         expectedAmount: record.expected.toString(10),

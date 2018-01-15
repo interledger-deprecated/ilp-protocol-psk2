@@ -505,7 +505,7 @@ describe('Receiver', function () {
       assert.equal(spy.callCount, 2)
     })
 
-    it.only('should accept a single-chunk payment if the user calls acceptSingleChunk', async function () {
+    it('should accept a single-chunk payment if the user calls acceptSingleChunk', async function () {
       // Previously this would throw because the finishedPromise was only set by the accept method, not acceptSingleChunk
       const spy = sinon.spy()
       this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {

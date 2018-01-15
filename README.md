@@ -28,8 +28,8 @@ See https://emschwartz.github.io/ilp-protocol-psk2
 
 Uses [`createReceiver`](https://emschwartz.github.io/ilp-protocol-psk2/modules/_receiver_.html#createreceiver) and [`Receiver.generateAddressAndSecret`](https://emschwartz.github.io/ilp-protocol-psk2/classes/_receiver_.receiver.html#generateaddressandsecret).
 
-```typescript
-import { createReceiver } from 'ilp-protocol-psk2'
+```js
+const { createReceive } = require('ilp-protocol-psk2')
 const receiver = await createReceiver({
   plugin: myLedgerPlugin,
   paymentHandler: async (params) => {
@@ -47,8 +47,8 @@ const { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
 
 Uses [`sendSingleChunk`](https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk) and [`quoteDestinationAmount`](https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#quotedestinationamount).
 
-```typescript
-import { sendSingleChunk, quoteDestinationAmount } from 'ilp-protocol-psk2'
+```js
+const { sendSingleChunk, quoteDestinationAmount } = require('ilp-protocol-psk2')
 
 // These values must be communicated beforehand for the sender to send a payment
 const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()
@@ -73,8 +73,8 @@ console.log(`Sent payment of ${result.sourceAmount}, receiver got ${result.desti
 Uses [`sendSingleChunk`](https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk).
 
 ```typescript
-import { randomBytes } from 'crypto'
-import { sendSingleChunk } from 'ilp-protocol-psk2'
+const { randomBytes } = require('crypto')
+const { sendSingleChunk } = require('ilp-protocol-psk2')
 
 // These values must be communicated beforehand for the sender to send a payment
 const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()

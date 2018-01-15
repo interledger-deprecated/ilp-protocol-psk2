@@ -86,10 +86,10 @@
 				<h2 id="usage">Usage</h2>
 				<h3 id="creating-a-receiver">Creating a Receiver</h3>
 				<p>Uses <a href="https://emschwartz.github.io/ilp-protocol-psk2/modules/_receiver_.html#createreceiver"><code>createReceiver</code></a> and <a href="https://emschwartz.github.io/ilp-protocol-psk2/classes/_receiver_.receiver.html#generateaddressandsecret"><code>Receiver.generateAddressAndSecret</code></a>.</p>
-				<pre><code class="lang-typescript"><span class="hljs-keyword">import</span> { createReceiver } <span class="hljs-keyword">from</span> <span class="hljs-string">'ilp-protocol-psk2'</span>
+				<pre><code class="lang-js"><span class="hljs-keyword">const</span> { createReceive } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'ilp-protocol-psk2'</span>)
 <span class="hljs-keyword">const</span> receiver = <span class="hljs-keyword">await</span> createReceiver({
-  plugin: myLedgerPlugin,
-  paymentHandler: <span class="hljs-keyword">async</span> (params) =&gt; {
+  <span class="hljs-attr">plugin</span>: myLedgerPlugin,
+  <span class="hljs-attr">paymentHandler</span>: <span class="hljs-keyword">async</span> (params) =&gt; {
     <span class="hljs-comment">// Accept all incoming payments</span>
     <span class="hljs-keyword">const</span> result = <span class="hljs-keyword">await</span> params.accept()
     <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Got payment for:'</span>, result.receivedAmount)
@@ -101,7 +101,7 @@
 </code></pre>
 				<h3 id="sending-a-single-payment">Sending a Single Payment</h3>
 				<p>Uses <a href="https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk"><code>sendSingleChunk</code></a> and <a href="https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#quotedestinationamount"><code>quoteDestinationAmount</code></a>.</p>
-				<pre><code class="lang-typescript"><span class="hljs-keyword">import</span> { sendSingleChunk, quoteDestinationAmount } <span class="hljs-keyword">from</span> <span class="hljs-string">'ilp-protocol-psk2'</span>
+				<pre><code class="lang-js"><span class="hljs-keyword">const</span> { sendSingleChunk, quoteDestinationAmount } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'ilp-protocol-psk2'</span>)
 
 <span class="hljs-comment">// These values must be communicated beforehand for the sender to send a payment</span>
 <span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = <span class="hljs-keyword">await</span> getAddressAndSecretFromReceiver()
@@ -109,21 +109,21 @@
 <span class="hljs-keyword">const</span> { sourceAmount } = <span class="hljs-keyword">await</span> quoteDestinationAmount(myLedgerPlugin, {
   destinationAccount,
   sharedSecret,
-  destinationAmount: <span class="hljs-string">'1000'</span>
+  <span class="hljs-attr">destinationAmount</span>: <span class="hljs-string">'1000'</span>
 })
 
 <span class="hljs-keyword">const</span> result = <span class="hljs-keyword">await</span> sendSingleChunk(myLedgerPlugin, {
   destinationAccount,
   sharedSecret,
   sourceAmount,
-  minDestinationAmount: <span class="hljs-string">'999'</span>
+  <span class="hljs-attr">minDestinationAmount</span>: <span class="hljs-string">'999'</span>
 })
 <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Sent payment of <span class="hljs-subst">${result.sourceAmount}</span>, receiver got <span class="hljs-subst">${result.destinationAmount}</span>`</span>)
 </code></pre>
 				<h3 id="sending-a-streaming-payment">Sending a Streaming Payment</h3>
 				<p>Uses <a href="https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk"><code>sendSingleChunk</code></a>.</p>
-				<pre><code class="lang-typescript"><span class="hljs-keyword">import</span> { randomBytes } <span class="hljs-keyword">from</span> <span class="hljs-string">'crypto'</span>
-<span class="hljs-keyword">import</span> { sendSingleChunk } <span class="hljs-keyword">from</span> <span class="hljs-string">'ilp-protocol-psk2'</span>
+				<pre><code class="lang-typescript"><span class="hljs-keyword">const</span> { randomBytes } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'crypto'</span>)
+<span class="hljs-keyword">const</span> { sendSingleChunk } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'ilp-protocol-psk2'</span>)
 
 <span class="hljs-comment">// These values must be communicated beforehand for the sender to send a payment</span>
 <span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = <span class="hljs-keyword">await</span> getAddressAndSecretFromReceiver()

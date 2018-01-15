@@ -505,6 +505,34 @@ describe('Receiver', function () {
       assert.equal(spy.callCount, 2)
     })
 
+    it.only('should accept a single-chunk payment if the user calls acceptSingleChunk', async function () {
+      // Previously this would throw because the finishedPromise was only set by the accept method, not acceptSingleChunk
+      const spy = sinon.spy()
+      this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
+        params.acceptSingleChunk()
+        spy()
+      })
+      const pskRequest = encoding.serializePskPacket(this.sharedSecret, {
+        type: 1, // last chunk
+        paymentId: Buffer.alloc(16),
+        sequence: 0,
+        paymentAmount: new BigNumber(500),
+        chunkAmount: new BigNumber(0),
+        applicationData: Buffer.alloc(0)
+      })
+      const fulfillment = condition.dataToFulfillment(this.sharedSecret, pskRequest)
+      const executionCondition = condition.fulfillmentToCondition(fulfillment)
+      const prepare = IlpPacket.serializeIlpPrepare({
+        destination: this.destinationAccount,
+        amount: '100',
+        expiresAt: new Date(Date.now() + 2000),
+        executionCondition: executionCondition,
+        data: pskRequest
+      })
+      const result1 = await this.plugin.sendData(prepare)
+      assert.equal(spy.callCount, 1)
+    })
+
     it('should reject one chunk and call the payment handler again if the user calls rejectSingleChunk', async function () {
       let callCount = 0
       this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {

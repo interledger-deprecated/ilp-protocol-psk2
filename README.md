@@ -1,8 +1,8 @@
 # PSKv2
 > Javascript implementation of the [Pre-Shared Key V2](https://github.com/interledger/rfcs/pull/351) Interledger Transport Protocol.
 
-[![CircleCI](https://circleci.com/gh/emschwartz/ilp-protocol-psk2.svg?style=shield)](https://circleci.com/gh/emschwartz/ilp-protocol-psk2)
-[![codecov](https://codecov.io/gh/emschwartz/ilp-protocol-psk2/branch/master/graph/badge.svg)](https://codecov.io/gh/emschwartz/ilp-protocol-psk2)
+[![CircleCI](https://circleci.com/gh/interledgerjs/ilp-protocol-psk2.svg?style=shield)](https://circleci.com/gh/interledgerjs/ilp-protocol-psk2)
+[![codecov](https://codecov.io/gh/interledgerjs/ilp-protocol-psk2/branch/master/graph/badge.svg)](https://codecov.io/gh/interledgerjs/ilp-protocol-psk2)
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 
 ## Features
@@ -20,13 +20,13 @@ npm install ilp-protocol-psk2
 
 ## API Documentation
 
-See https://emschwartz.github.io/ilp-protocol-psk2
+See https://interledgerjs.github.io/ilp-protocol-psk2
 
 ## Usage
 
 ### Creating a Receiver
 
-Uses [`createReceiver`](https://emschwartz.github.io/ilp-protocol-psk2/modules/_receiver_.html#createreceiver) and [`Receiver.generateAddressAndSecret`](https://emschwartz.github.io/ilp-protocol-psk2/classes/_receiver_.receiver.html#generateaddressandsecret).
+Uses [`createReceiver`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_receiver_.html#createreceiver) and [`Receiver.generateAddressAndSecret`](https://interledgerjs.github.io/ilp-protocol-psk2/classes/_receiver_.receiver.html#generateaddressandsecret).
 
 ```js
 const { createReceive } = require('ilp-protocol-psk2')
@@ -45,7 +45,7 @@ const { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
 
 ### Sending a Single Payment
 
-Uses [`sendSingleChunk`](https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk) and [`quoteDestinationAmount`](https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#quotedestinationamount).
+Uses [`sendSingleChunk`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk) and [`quoteDestinationAmount`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#quotedestinationamount).
 
 ```js
 const { sendSingleChunk, quoteDestinationAmount } = require('ilp-protocol-psk2')
@@ -70,7 +70,7 @@ console.log(`Sent payment of ${result.sourceAmount}, receiver got ${result.desti
 
 ### Sending a Streaming Payment
 
-Uses [`sendSingleChunk`](https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk).
+Uses [`sendSingleChunk`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk).
 
 ```typescript
 const { randomBytes } = require('crypto')
@@ -109,4 +109,4 @@ const lastChunkResult = await sendSingleChunk(myLedgerPlugin, {
 
 **WARNING:** PSK2 Chunked Payments are experimental. Money can be lost if an error occurs mid-payment or if the exchange rate changes dramatically! This should not be used for payments that are significantly larger than the path's Maximum Payment Size.
 
-See [`sendSourceAmount`](https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsourceamount) and [`sendDestinationAmount`](https://emschwartz.github.io/ilp-protocol-psk2/modules/_sender_.html#senddestinationamount).
+See [`sendSourceAmount`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsourceamount) and [`sendDestinationAmount`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#senddestinationamount).

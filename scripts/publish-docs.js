@@ -9,7 +9,7 @@ fs.writeFileSync('doc/.nojekyll', 'Disable Jekyll\n')
 ghpages.publish('doc', {
   src: ['**/*', '.nojekyll'],
   message: 'docs: [skip ci] Publish docs',
-  repo: 'git@github.com:emschwartz/ilp-protocol-psk2.git',
+  repo: 'git@github.com:interledgerjs/ilp-protocol-psk2.git',
   user: {
     name: 'CircleCI',
     email: 'none'

@@ -8,7 +8,7 @@ import * as constants from './constants'
 import { serializePskPacket, deserializePskPacket, PskPacket } from './encoding'
 import { dataToFulfillment, fulfillmentToCondition } from './condition'
 
-const DEFAULT_TRANSFER_TIMEOUT = 5000
+const DEFAULT_TRANSFER_TIMEOUT = 30000
 const STARTING_TRANSFER_AMOUNT = 1000
 const TRANSFER_INCREASE = 1.1
 const TRANSFER_DECREASE = 0.5

@@ -29,9 +29,12 @@ See https://interledgerjs.github.io/ilp-protocol-psk2
 Uses [`createReceiver`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_receiver_.html#createreceiver) and [`Receiver.generateAddressAndSecret`](https://interledgerjs.github.io/ilp-protocol-psk2/classes/_receiver_.receiver.html#generateaddressandsecret).
 
 ```js
-const { createReceive } = require('ilp-protocol-psk2')
+// Snippet taken from examples/single-chunk.js
+// const { createReceiver } = require('ilp-protocol-psk2')
+
+const receiverToken = base64url(crypto.randomBytes(32))
 const receiver = await createReceiver({
-  plugin: myLedgerPlugin,
+  plugin: new IlpPluginBtp({ server: `btp+wss://:${receiverToken}@amundsen.ilpdemo.org:1801` }),
   paymentHandler: async (params) => {
     // Accept all incoming payments
     const result = await params.accept()
@@ -39,7 +42,7 @@ const receiver = await createReceiver({
   }
 })
 
-const { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
+return receiver.generateAddressAndSecret()
 // Give these two values to a sender to enable them to send payments to this Receiver
 ```
 
@@ -48,7 +51,11 @@ const { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
 Uses [`sendSingleChunk`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk) and [`quoteDestinationAmount`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#quotedestinationamount).
 
 ```js
-const { sendSingleChunk, quoteDestinationAmount } = require('ilp-protocol-psk2')
+// Snippet taken from examples/single-chunk.js
+// const { sendSingleChunk, quoteDestinationAmount } = require('ilp-protocol-psk2')
+
+const myLedgerPlugin = new IlpPluginHttpOer({ peerUrl: `https://amundsen.ilpdemo.org:1801/` })
+await myLedgerPlugin.connect()
 
 // These values must be communicated beforehand for the sender to send a payment
 const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()

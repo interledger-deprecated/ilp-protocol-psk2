@@ -29,7 +29,7 @@ See https://interledgerjs.github.io/ilp-protocol-psk2
 Uses [`createReceiver`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_receiver_.html#createreceiver) and [`Receiver.generateAddressAndSecret`](https://interledgerjs.github.io/ilp-protocol-psk2/classes/_receiver_.receiver.html#generateaddressandsecret).
 
 ```js
-const { createReceive } = require('ilp-protocol-psk2')
+const { createReceiver } = require('ilp-protocol-psk2')
 const receiver = await createReceiver({
   plugin: myLedgerPlugin,
   paymentHandler: async (params) => {

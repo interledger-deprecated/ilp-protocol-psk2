@@ -4,6 +4,7 @@ dist
 coverage
 **/*.js
 !scripts/*.js
+!examples/*.js
 **/*.js.map
 **/*.d.ts
 .nyc_output

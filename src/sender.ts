@@ -7,6 +7,7 @@ import { default as convert, PluginV1, PluginV2 } from 'ilp-compat-plugin'
 import * as constants from './constants'
 import { serializePskPacket, deserializePskPacket, PskPacket } from './encoding'
 import { dataToFulfillment, fulfillmentToCondition } from './condition'
+import { EventEmitter2 } from 'eventemitter2'
 
 const DEFAULT_TRANSFER_TIMEOUT = 30000
 const STARTING_TRANSFER_AMOUNT = 1000
@@ -15,6 +16,8 @@ const TRANSFER_DECREASE = 0.5
 
 // Chunked payments are still experimental so we want to warn the user (but only once per use of the module)
 let warnedUserAboutChunkedPayments = false
+
+export type Amount = BigNumber | string | number
 
 /** Parameters for the [`quoteSourceAmount`]{@link quoteSourceAmount} method. */
 export interface QuoteSourceParams {
@@ -144,6 +147,99 @@ export interface SendDestinationParams {
   destinationAccount: string,
   /** Optional ID that will be used as the PSK Payment ID. Defaults to a random 16-byte ID. */
   id?: Buffer
+}
+
+export interface SendSocketOpts {
+  plugin: PluginV2,
+  destinationAccount: string,
+  sharedSecret: Buffer
+}
+
+export class SendSocket extends EventEmitter2 {
+  protected plugin: PluginV2
+  protected sharedSecret: Buffer
+  protected destinationAccount: string
+  protected sendLimit: BigNumber
+  protected amountSent: BigNumber
+  protected amountDelivered: BigNumber
+  protected connected: boolean
+  protected chunkAmount: BigNumber
+  protected sequence: number
+  protected debug: Debug.IDebugger
+
+  constructor (opts: SendSocketOpts) {
+    super()
+    this.plugin = opts.plugin
+    this.sharedSecret = opts.sharedSecret
+    this.destinationAccount = opts.destinationAccount
+    this.connected = false
+    this.chunkAmount = new BigNumber(STARTING_TRANSFER_AMOUNT)
+    this.sendLimit = new BigNumber(0)
+    this.amountSent = new BigNumber(0)
+    this.amountDelivered = new BigNumber(0)
+    this.sequence = 0
+    this.debug = Debug('ilp-psk2:SendSocket')
+  }
+
+  async connect (): Promise<void> {
+    await this.plugin.connect()
+    this.connected = true
+    this.emit('connect')
+    this.debug('connected')
+  }
+
+  async end (): Promise<void> {
+    // TODO send message to receiver telling them not to expect any more
+    this.connected = false
+    this.emit('close')
+    // TODO should we emit end after the receiver has confirmed?
+    this.emit('end')
+  }
+
+  // TODO emit events when each chunk is sent
+  setLimit (amount: Amount): void {
+    const amountToAdd = new BigNumber(amount).minus(this.sendLimit)
+    this.sendLimit = BigNumber.max(amount, 0)
+    this.debug(`set limit to: ${this.sendLimit}`)
+
+    if (!this.connected) {
+      this.debug(`set limit but not sending because socket is disconnected`)
+      return
+    }
+
+    // TODO should this be based on the amountSent so far?
+    if (amountToAdd.greaterThan(0)) {
+      sendSourceAmount(this.plugin, {
+        sharedSecret: this.sharedSecret,
+        sourceAmount: amountToAdd,
+        destinationAccount: this.destinationAccount
+      }).then((sendResult) => {
+        this.debug(`sent: ${sendResult.sourceAmount}, delivered: ${sendResult.destinationAmount}. total sent: ${this.amountSent}, total delivered: ${this.amountDelivered}`)
+        this.amountDelivered = this.amountDelivered.plus(sendResult.destinationAmount)
+        this.amountSent = this.amountSent.plus(sendResult.sourceAmount)
+      }).catch((err) => {
+        this.debug('error sending money up to limit:', err)
+      })
+    }
+  }
+
+  async getRate (): Promise<BigNumber> {
+    assert(this.connected, 'socket must be connected to get rate')
+
+    // TODO use the cached rate if we've already sent some payments
+    const { sourceAmount, destinationAmount } = await quoteSourceAmount(this.plugin, {
+      sharedSecret: this.sharedSecret,
+      sourceAmount: STARTING_TRANSFER_AMOUNT,
+      destinationAccount: this.destinationAccount
+    })
+    return new BigNumber(destinationAmount).dividedBy(sourceAmount)
+  }
+}
+
+export async function createSocket (opts: SendSocketOpts): Promise<SendSocket> {
+  const socket = new SendSocket(opts)
+  await socket.connect()
+  return socket
 }
 
 /**

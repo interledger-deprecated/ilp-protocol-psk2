@@ -49,6 +49,104 @@ describe('Sender', function () {
     this.clock.restore()
   })
 
+  describe('SendSocket', function () {
+    beforeEach(function () {
+      this.socket = new sender.SendSocket({
+        plugin: this.plugin,
+        sharedSecret: Buffer.alloc(32, 0),
+        destinationAccount: 'test.receiver'
+      })
+    })
+
+    describe('connect', function () {
+      it('should connect the plugin and emit the connect event', async function () {
+        const spy = sinon.spy(this.plugin, 'connect')
+        const eventSpy = sinon.spy()
+        this.socket.once('connect', eventSpy)
+        await this.socket.connect()
+        assert.ok(spy.called)
+        assert.ok(eventSpy.called)
+      })
+    })
+
+    describe('getRate', function () {
+      beforeEach(async function () {
+        this.plugin.sendData = (buffer: Buffer) => Promise.resolve(IlpPacket.serializeIlpReject({
+          code: 'F99',
+          message: '',
+          triggeredBy: 'test.receiver',
+          data: encoding.serializePskPacket(SHARED_SECRET, {
+            type: 3,
+            sequence: 0,
+            paymentId: PAYMENT_ID,
+            paymentAmount: new BigNumber(0),
+            chunkAmount: new BigNumber('500')
+          })
+        }))
+        await this.socket.connect()
+      })
+
+      it('should quote the source amount to determine the rate', async function () {
+        const rate = await this.socket.getRate()
+        assert.equal(rate.toNumber(), .5)
+      })
+
+      it.skip('should not send a test payment if it already knows the path exchange rate')
+    })
+
+    describe('setLimit', function () {
+      beforeEach(async function () {
+        this.sendDataStub = sinon.stub(this.plugin, 'sendData')
+          .onFirstCall()
+          .resolves(ILDCP.serializeIldcpResponse({
+            clientAddress: 'test.receiver',
+            assetScale: 9,
+            assetCode: 'ABC'
+          }))
+          .callThrough()
+
+        this.receiver = await createReceiver({
+          plugin: this.plugin,
+          paymentHandler: (params: PaymentHandlerParams) => {
+            params.accept()
+          }
+        })
+        const { destinationAccount, sharedSecret } = this.receiver.generateAddressAndSecret()
+        this.destinationAccount = destinationAccount
+        this.sharedSecret = sharedSecret
+
+        this.socket = new sender.SendSocket({
+          plugin: this.plugin,
+          sharedSecret: this.sharedSecret,
+          destinationAccount: this.destinationAccount
+        })
+
+        await this.socket.connect()
+      })
+
+      it('should not do anything if the limit is lower than the previous limit', async function () {
+        this.clock.restore()
+
+        this.socket.setLimit(500)
+        await new Promise((resolve, reject) => setImmediate(resolve))
+        const callCount = this.sendDataStub.callCount
+
+        this.socket.setLimit(200)
+        await new Promise((resolve, reject) => setImmediate(resolve))
+
+        assert.equal(this.sendDataStub.callCount, callCount)
+      })
+
+      it('should send a chunked payment if the amount is higher than the current limit', async function () {
+        this.clock.restore()
+
+        this.socket.setLimit(1500)
+        await new Promise((resolve, reject) => setImmediate(resolve))
+        assert.equal(this.sendDataStub.callCount, 3)
+      })
+    })
+  })
+
   describe('quoteSourceAmount', function () {
     beforeEach(function () {
       this.plugin.sendData = (buffer: Buffer) => Promise.resolve(IlpPacket.serializeIlpReject({

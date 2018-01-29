@@ -9,7 +9,6 @@ export interface MoneyHandler {
   (amount: string): Promise<void>
 }
 
-
 export default class MockPlugin extends EventEmitter {
   static readonly version = 2
   public dataHandler: DataHandler

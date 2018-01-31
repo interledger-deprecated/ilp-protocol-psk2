@@ -6,7 +6,8 @@ import mock = require('mock-require')
 import BigNumber from 'bignumber.js'
 import * as IlpPacket from 'ilp-packet'
 import MockPlugin from './mocks/plugin'
-import { Receiver, createReceiver, PaymentReceived, PaymentHandlerParams } from '../src/receiver'
+import { Receiver, createReceiver, PaymentReceived, PaymentHandlerParams, ReceiveSocket } from '../src/receiver'
+import { sendSingleChunk, quoteSourceAmount } from '../src/sender'
 import * as encoding from '../src/encoding'
 import * as ILDCP from 'ilp-protocol-ildcp'
 import { MAX_UINT64 } from '../src/constants'
@@ -74,6 +75,44 @@ describe('Receiver', function () {
       const call2 = this.receiver.generateAddressAndSecret()
       assert.notEqual(call1.destinationAccount, call2.destinationAccount)
       assert.notEqual(call1.sharedSecret, call2.sharedSecret)
+    })
+  })
+
+  describe('createReceiveSocket', function () {
+    beforeEach(async function () {
+      await this.receiver.connect()
+    })
+
+    it('should return a ReceiveSocket', async function () {
+      const socket = this.receiver.createReceiveSocket()
+      assert.instanceOf(socket, ReceiveSocket)
+    })
+
+    it('should use the token specified', async function () {
+      const socket = this.receiver.createReceiveSocket(Buffer.alloc(16))
+      const accountParts = socket.destinationAccount.split('.')
+      assert.equal(accountParts[accountParts.length - 1 ], 'AAAAAAAAAAAAAAAAAAAAAA')
+    })
+
+    it('should return the same socket if it is called twice with the same token', async function () {
+      const socket1 = this.receiver.createReceiveSocket(Buffer.alloc(16))
+      const socket2 = this.receiver.createReceiveSocket(Buffer.alloc(16))
+      assert.equal(socket1, socket2)
+    })
+
+    it('should throw if the receiver is not connected', async function () {
+      await this.receiver.disconnect()
+      assert.throws(() => this.receiver.createReceiveSocket(), 'receiver is not connected')
+    })
+
+    it('should throw if a payment handler has been registered', async function () {
+      this.receiver.registerPaymentHandler(() => { return })
+      assert.throws(() => this.receiver.createReceiveSocket(), 'ReceiveSockets and payment handlers cannot be used at the same time')
+    })
+
+    it('should not allow a payment handler to be registered once a ReceiveSocket has been created', async function () {
+      this.receiver.createReceiveSocket()
+      assert.throws(() => this.receiver.registerPaymentHandler(() => { return }))
     })
   })
 
@@ -304,253 +343,252 @@ describe('Receiver', function () {
         })
       })
     })
-  })
 
-  describe('multiple chunks', function () {
-    beforeEach(async function () {
-      await this.receiver.connect()
-      const { destinationAccount, sharedSecret } = this.receiver.generateAddressAndSecret()
-      this.destinationAccount = destinationAccount
-      this.sharedSecret = sharedSecret
-      const pskRequest1 = encoding.serializePskPacket(sharedSecret, {
-        type: 0,
-        paymentId: Buffer.alloc(16),
-        sequence: 0,
-        paymentAmount: new BigNumber(500),
-        chunkAmount: new BigNumber(0),
-        applicationData: Buffer.alloc(0)
-      })
-      const fulfillment1 = condition.dataToFulfillment(sharedSecret, pskRequest1)
-      const executionCondition1 = condition.fulfillmentToCondition(fulfillment1)
-      this.prepare1 = IlpPacket.serializeIlpPrepare({
-        destination: destinationAccount,
-        amount: '100',
-        expiresAt: new Date(Date.now() + 2000),
-        executionCondition: executionCondition1,
-        data: pskRequest1
-      })
-      const pskRequest2 = encoding.serializePskPacket(sharedSecret, {
-        type: 0,
-        paymentId: Buffer.alloc(16),
-        sequence: 1,
-        paymentAmount: new BigNumber(500),
-        chunkAmount: new BigNumber(0),
-        applicationData: Buffer.alloc(0)
-      })
-      const fulfillment2 = condition.dataToFulfillment(sharedSecret, pskRequest2)
-      const executionCondition2 = condition.fulfillmentToCondition(fulfillment2)
-      this.prepare2 = IlpPacket.serializeIlpPrepare({
-        destination: destinationAccount,
-        amount: '200',
-        expiresAt: new Date(Date.now() + 2000),
-        executionCondition: executionCondition2,
-        data: pskRequest2
-      })
-    })
-
-    it('should call the payment handler on the first chunk', async function () {
-      const spy = sinon.spy()
-      this.receiver.registerPaymentHandler(spy)
-      await this.plugin.sendData(this.prepare1)
-      assert.typeOf(spy.args[0][0].accept, 'function')
-      assert.typeOf(spy.args[0][0].reject, 'function')
-      assert.typeOf(spy.args[0][0].acceptSingleChunk, 'function')
-      assert.typeOf(spy.args[0][0].rejectSingleChunk, 'function')
-      assert.typeOf(spy.args[0][0].prepare, 'object')
-      assert.equal(spy.args[0][0].prepare.amount, '50')
-      assert(Buffer.isBuffer(spy.args[0][0].id))
-    })
-
-    it('should accept the next chunks if the receiver calls accpet', async function () {
-      const spy = sinon.spy()
-      this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
-        params.accept()
-        spy()
-      })
-      const result1 = await this.plugin.sendData(this.prepare1)
-      const result2 = await this.plugin.sendData(this.prepare2)
-
-      assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_FULFILL)
-      assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_FULFILL)
-      assert.equal(spy.callCount, 1)
-    })
-
-    it('should resolve the Promise returned by the accept function when the payment has been fully received', async function () {
-      const spy = sinon.spy()
-      this.receiver.registerPaymentHandler(async (params: PaymentHandlerParams) => {
-        const paymentResult = await params.accept()
-        spy(paymentResult)
+    describe('multiple chunks', function () {
+      beforeEach(async function () {
+        const { destinationAccount, sharedSecret } = this.receiver.generateAddressAndSecret()
+        this.destinationAccount = destinationAccount
+        this.sharedSecret = sharedSecret
+        const pskRequest1 = encoding.serializePskPacket(sharedSecret, {
+          type: 0,
+          paymentId: Buffer.alloc(16),
+          sequence: 0,
+          paymentAmount: new BigNumber(500),
+          chunkAmount: new BigNumber(0),
+          applicationData: Buffer.alloc(0)
+        })
+        const fulfillment1 = condition.dataToFulfillment(sharedSecret, pskRequest1)
+        const executionCondition1 = condition.fulfillmentToCondition(fulfillment1)
+        this.prepare1 = IlpPacket.serializeIlpPrepare({
+          destination: destinationAccount,
+          amount: '100',
+          expiresAt: new Date(Date.now() + 2000),
+          executionCondition: executionCondition1,
+          data: pskRequest1
+        })
+        const pskRequest2 = encoding.serializePskPacket(sharedSecret, {
+          type: 0,
+          paymentId: Buffer.alloc(16),
+          sequence: 1,
+          paymentAmount: new BigNumber(500),
+          chunkAmount: new BigNumber(0),
+          applicationData: Buffer.alloc(0)
+        })
+        const fulfillment2 = condition.dataToFulfillment(sharedSecret, pskRequest2)
+        const executionCondition2 = condition.fulfillmentToCondition(fulfillment2)
+        this.prepare2 = IlpPacket.serializeIlpPrepare({
+          destination: destinationAccount,
+          amount: '200',
+          expiresAt: new Date(Date.now() + 2000),
+          executionCondition: executionCondition2,
+          data: pskRequest2
+        })
       })
 
-      const pskRequest = encoding.serializePskPacket(this.sharedSecret, {
-        type: 0,
-        paymentId: Buffer.alloc(16),
-        sequence: 2,
-        paymentAmount: new BigNumber(500),
-        chunkAmount: new BigNumber(0),
-        applicationData: Buffer.alloc(0)
-      })
-      const fulfillment = condition.dataToFulfillment(this.sharedSecret, pskRequest)
-      const executionCondition = condition.fulfillmentToCondition(fulfillment)
-      const prepare3 = IlpPacket.serializeIlpPrepare({
-        destination: this.destinationAccount,
-        amount: '1002', // plugin applies 0.5 exchange rate
-        expiresAt: new Date(Date.now() + 2000),
-        executionCondition: executionCondition,
-        data: pskRequest
+      it('should call the payment handler on the first chunk', async function () {
+        const spy = sinon.spy()
+        this.receiver.registerPaymentHandler(spy)
+        await this.plugin.sendData(this.prepare1)
+        assert.typeOf(spy.args[0][0].accept, 'function')
+        assert.typeOf(spy.args[0][0].reject, 'function')
+        assert.typeOf(spy.args[0][0].acceptSingleChunk, 'function')
+        assert.typeOf(spy.args[0][0].rejectSingleChunk, 'function')
+        assert.typeOf(spy.args[0][0].prepare, 'object')
+        assert.equal(spy.args[0][0].prepare.amount, '50')
+        assert(Buffer.isBuffer(spy.args[0][0].id))
       })
 
-      const result1 = await this.plugin.sendData(this.prepare1)
-      const result2 = await this.plugin.sendData(this.prepare2)
-      const result3 = await this.plugin.sendData(prepare3)
+      it('should accept the next chunks if the receiver calls accpet', async function () {
+        const spy = sinon.spy()
+        this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
+          params.accept()
+          spy()
+        })
+        const result1 = await this.plugin.sendData(this.prepare1)
+        const result2 = await this.plugin.sendData(this.prepare2)
 
-      assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_FULFILL)
-      assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_FULFILL)
-      assert.equal(result3[0], IlpPacket.Type.TYPE_ILP_FULFILL)
-
-      // The payment result promise is resolved without being awaited so it'll only happen on the next tick of the event loop
-      await new Promise((resolve, reject) => setImmediate(resolve))
-
-      assert.equal(spy.callCount, 1)
-      assert.deepEqual(spy.args[0][0], {
-        id: Buffer.alloc(16),
-        chunksFulfilled: 3,
-        chunksRejected: 0,
-        expectedAmount: '500',
-        receivedAmount: '651'
+        assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_FULFILL)
+        assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_FULFILL)
+        assert.equal(spy.callCount, 1)
       })
-    })
 
-    it('should reject all chunks if the receiver calls reject', async function () {
-      const spy = sinon.spy()
-      this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
-        spy()
-        params.reject('nop')
-      })
-      const result1 = await this.plugin.sendData(this.prepare1)
-      const result2 = await this.plugin.sendData(this.prepare2)
+      it('should resolve the Promise returned by the accept function when the payment has been fully received', async function () {
+        const spy = sinon.spy()
+        this.receiver.registerPaymentHandler(async (params: PaymentHandlerParams) => {
+          const paymentResult = await params.accept()
+          spy(paymentResult)
+        })
 
-      assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_REJECT)
-      assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_REJECT)
-      assert.equal(spy.callCount, 1)
-    })
+        const pskRequest = encoding.serializePskPacket(this.sharedSecret, {
+          type: 0,
+          paymentId: Buffer.alloc(16),
+          sequence: 2,
+          paymentAmount: new BigNumber(500),
+          chunkAmount: new BigNumber(0),
+          applicationData: Buffer.alloc(0)
+        })
+        const fulfillment = condition.dataToFulfillment(this.sharedSecret, pskRequest)
+        const executionCondition = condition.fulfillmentToCondition(fulfillment)
+        const prepare3 = IlpPacket.serializeIlpPrepare({
+          destination: this.destinationAccount,
+          amount: '1002', // plugin applies 0.5 exchange rate
+          expiresAt: new Date(Date.now() + 2000),
+          executionCondition: executionCondition,
+          data: pskRequest
+        })
 
-    it('should not accept any more chunks after the payment amount has been received', async function () {
-      this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
-        params.accept()
-      })
-      const pskRequest = encoding.serializePskPacket(this.sharedSecret, {
-        type: 0,
-        paymentId: Buffer.alloc(16),
-        sequence: 0,
-        paymentAmount: new BigNumber(500),
-        chunkAmount: new BigNumber(0),
-        applicationData: Buffer.alloc(0)
-      })
-      const fulfillment = condition.dataToFulfillment(this.sharedSecret, pskRequest)
-      const executionCondition = condition.fulfillmentToCondition(fulfillment)
-      const prepare = IlpPacket.serializeIlpPrepare({
-        destination: this.destinationAccount,
-        amount: '1002', // plugin applies 0.5 exchange rate
-        expiresAt: new Date(Date.now() + 2000),
-        executionCondition: executionCondition,
-        data: pskRequest
-      })
-      const result1 = await this.plugin.sendData(prepare)
-      const result2 = await this.plugin.sendData(this.prepare2)
+        const result1 = await this.plugin.sendData(this.prepare1)
+        const result2 = await this.plugin.sendData(this.prepare2)
+        const result3 = await this.plugin.sendData(prepare3)
 
-      assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_FULFILL)
-      assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_REJECT)
-    })
+        assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_FULFILL)
+        assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_FULFILL)
+        assert.equal(result3[0], IlpPacket.Type.TYPE_ILP_FULFILL)
 
-    it('should not accept more chunks after the last chunk has been received', async function () {
-      this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
-        params.accept()
-      })
-      const pskRequest = encoding.serializePskPacket(this.sharedSecret, {
-        type: 1, // last chunk
-        paymentId: Buffer.alloc(16),
-        sequence: 0,
-        paymentAmount: new BigNumber(500),
-        chunkAmount: new BigNumber(0),
-        applicationData: Buffer.alloc(0)
-      })
-      const fulfillment = condition.dataToFulfillment(this.sharedSecret, pskRequest)
-      const executionCondition = condition.fulfillmentToCondition(fulfillment)
-      const prepare = IlpPacket.serializeIlpPrepare({
-        destination: this.destinationAccount,
-        amount: '100',
-        expiresAt: new Date(Date.now() + 2000),
-        executionCondition: executionCondition,
-        data: pskRequest
-      })
-      const result1 = await this.plugin.sendData(prepare)
-      const result2 = await this.plugin.sendData(this.prepare2)
+        // The payment result promise is resolved without being awaited so it'll only happen on the next tick of the event loop
+        await new Promise((resolve, reject) => setImmediate(resolve))
 
-      assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_FULFILL)
-      assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_REJECT)
-    })
-
-    it('should accept one chunk and call the payment handler again if the user calls acceptSingleChunk', async function () {
-      const spy = sinon.spy()
-      this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
-        params.acceptSingleChunk()
-        spy()
+        assert.equal(spy.callCount, 1)
+        assert.deepEqual(spy.args[0][0], {
+          id: Buffer.alloc(16),
+          chunksFulfilled: 3,
+          chunksRejected: 0,
+          expectedAmount: '500',
+          receivedAmount: '651'
+        })
       })
-      const result1 = await this.plugin.sendData(this.prepare1)
-      const result2 = await this.plugin.sendData(this.prepare2)
 
-      assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_FULFILL)
-      assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_FULFILL)
-      assert.equal(spy.callCount, 2)
-    })
+      it('should reject all chunks if the receiver calls reject', async function () {
+        const spy = sinon.spy()
+        this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
+          spy()
+          params.reject('nop')
+        })
+        const result1 = await this.plugin.sendData(this.prepare1)
+        const result2 = await this.plugin.sendData(this.prepare2)
 
-    it('should accept a single-chunk payment if the user calls acceptSingleChunk', async function () {
-      // Previously this would throw because the finishedPromise was only set by the accept method, not acceptSingleChunk
-      const spy = sinon.spy()
-      this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
-        params.acceptSingleChunk()
-        spy()
+        assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_REJECT)
+        assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_REJECT)
+        assert.equal(spy.callCount, 1)
       })
-      const pskRequest = encoding.serializePskPacket(this.sharedSecret, {
-        type: 1, // last chunk
-        paymentId: Buffer.alloc(16),
-        sequence: 0,
-        paymentAmount: new BigNumber(500),
-        chunkAmount: new BigNumber(0),
-        applicationData: Buffer.alloc(0)
-      })
-      const fulfillment = condition.dataToFulfillment(this.sharedSecret, pskRequest)
-      const executionCondition = condition.fulfillmentToCondition(fulfillment)
-      const prepare = IlpPacket.serializeIlpPrepare({
-        destination: this.destinationAccount,
-        amount: '100',
-        expiresAt: new Date(Date.now() + 2000),
-        executionCondition: executionCondition,
-        data: pskRequest
-      })
-      const result1 = await this.plugin.sendData(prepare)
-      assert.equal(spy.callCount, 1)
-    })
 
-    it('should reject one chunk and call the payment handler again if the user calls rejectSingleChunk', async function () {
-      let callCount = 0
-      this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
-        if (++callCount === 1) {
-          params.rejectSingleChunk('nope')
-        } else {
+      it('should not accept any more chunks after the payment amount has been received', async function () {
+        this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
+          params.accept()
+        })
+        const pskRequest = encoding.serializePskPacket(this.sharedSecret, {
+          type: 0,
+          paymentId: Buffer.alloc(16),
+          sequence: 0,
+          paymentAmount: new BigNumber(500),
+          chunkAmount: new BigNumber(0),
+          applicationData: Buffer.alloc(0)
+        })
+        const fulfillment = condition.dataToFulfillment(this.sharedSecret, pskRequest)
+        const executionCondition = condition.fulfillmentToCondition(fulfillment)
+        const prepare = IlpPacket.serializeIlpPrepare({
+          destination: this.destinationAccount,
+          amount: '1002', // plugin applies 0.5 exchange rate
+          expiresAt: new Date(Date.now() + 2000),
+          executionCondition: executionCondition,
+          data: pskRequest
+        })
+        const result1 = await this.plugin.sendData(prepare)
+        const result2 = await this.plugin.sendData(this.prepare2)
+
+        assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_FULFILL)
+        assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_REJECT)
+      })
+
+      it('should not accept more chunks after the last chunk has been received', async function () {
+        this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
+          params.accept()
+        })
+        const pskRequest = encoding.serializePskPacket(this.sharedSecret, {
+          type: 1, // last chunk
+          paymentId: Buffer.alloc(16),
+          sequence: 0,
+          paymentAmount: new BigNumber(500),
+          chunkAmount: new BigNumber(0),
+          applicationData: Buffer.alloc(0)
+        })
+        const fulfillment = condition.dataToFulfillment(this.sharedSecret, pskRequest)
+        const executionCondition = condition.fulfillmentToCondition(fulfillment)
+        const prepare = IlpPacket.serializeIlpPrepare({
+          destination: this.destinationAccount,
+          amount: '100',
+          expiresAt: new Date(Date.now() + 2000),
+          executionCondition: executionCondition,
+          data: pskRequest
+        })
+        const result1 = await this.plugin.sendData(prepare)
+        const result2 = await this.plugin.sendData(this.prepare2)
+
+        assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_FULFILL)
+        assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_REJECT)
+      })
+
+      it('should accept one chunk and call the payment handler again if the user calls acceptSingleChunk', async function () {
+        const spy = sinon.spy()
+        this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
           params.acceptSingleChunk()
-        }
+          spy()
+        })
+        const result1 = await this.plugin.sendData(this.prepare1)
+        const result2 = await this.plugin.sendData(this.prepare2)
+
+        assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_FULFILL)
+        assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_FULFILL)
+        assert.equal(spy.callCount, 2)
       })
-      const result1 = await this.plugin.sendData(this.prepare1)
-      const result2 = await this.plugin.sendData(this.prepare2)
 
-      assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_REJECT)
-      assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_FULFILL)
-      assert.equal(callCount, 2)
+      it('should accept a single-chunk payment if the user calls acceptSingleChunk', async function () {
+        // Previously this would throw because the finishedPromise was only set by the accept method, not acceptSingleChunk
+        const spy = sinon.spy()
+        this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
+          params.acceptSingleChunk()
+          spy()
+        })
+        const pskRequest = encoding.serializePskPacket(this.sharedSecret, {
+          type: 1, // last chunk
+          paymentId: Buffer.alloc(16),
+          sequence: 0,
+          paymentAmount: new BigNumber(500),
+          chunkAmount: new BigNumber(0),
+          applicationData: Buffer.alloc(0)
+        })
+        const fulfillment = condition.dataToFulfillment(this.sharedSecret, pskRequest)
+        const executionCondition = condition.fulfillmentToCondition(fulfillment)
+        const prepare = IlpPacket.serializeIlpPrepare({
+          destination: this.destinationAccount,
+          amount: '100',
+          expiresAt: new Date(Date.now() + 2000),
+          executionCondition: executionCondition,
+          data: pskRequest
+        })
+        const result1 = await this.plugin.sendData(prepare)
+        assert.equal(spy.callCount, 1)
+      })
+
+      it('should reject one chunk and call the payment handler again if the user calls rejectSingleChunk', async function () {
+        let callCount = 0
+        this.receiver.registerPaymentHandler((params: PaymentHandlerParams) => {
+          if (++callCount === 1) {
+            params.rejectSingleChunk('nope')
+          } else {
+            params.acceptSingleChunk()
+          }
+        })
+        const result1 = await this.plugin.sendData(this.prepare1)
+        const result2 = await this.plugin.sendData(this.prepare2)
+
+        assert.equal(result1[0], IlpPacket.Type.TYPE_ILP_REJECT)
+        assert.equal(result2[0], IlpPacket.Type.TYPE_ILP_FULFILL)
+        assert.equal(callCount, 2)
+      })
+
+      it.skip('should track payment ids separately for each token / sender')
     })
-
-    it.skip('should track payment ids separately for each token / sender')
   })
 })
 
@@ -564,6 +602,7 @@ describe('createReceiver', function () {
         assetScale: 9,
         assetCode: 'ABC'
       }))
+      .callThrough()
   })
 
   it('should return a new, connected receiver with a random secret', async function () {
@@ -574,5 +613,241 @@ describe('createReceiver', function () {
     assert(this.plugin.isConnected())
     assert(receiver.isConnected())
     assert.notEqual(this.plugin.dataHandler, this.plugin.defaultDataHandler)
+  })
+})
+
+describe('ReceiveSocket', function () {
+  beforeEach(async function () {
+    this.plugin = new MockPlugin(0.5)
+    this.ildcpStub = sinon.stub(this.plugin, 'sendData')
+      .onFirstCall()
+      .resolves(ILDCP.serializeIldcpResponse({
+        clientAddress: 'test.receiver',
+        assetScale: 9,
+        assetCode: 'ABC'
+      }))
+      .callThrough()
+    this.receiver = await createReceiver({
+      plugin: this.plugin,
+      secret: Buffer.alloc(32)
+    })
+    this.socket = this.receiver.createReceiveSocket(Buffer.alloc(16))
+    const { sharedSecret, destinationAccount } = this.socket
+    this.pskRequest1 = encoding.serializePskPacket(sharedSecret, {
+      type: 0,
+      paymentId: Buffer.alloc(16),
+      sequence: 0,
+      paymentAmount: new BigNumber(500),
+      chunkAmount: new BigNumber(0),
+      applicationData: Buffer.alloc(0)
+    })
+    this.fulfillment1 = condition.dataToFulfillment(sharedSecret, this.pskRequest1)
+    this.executionCondition1 = condition.fulfillmentToCondition(this.fulfillment1)
+    this.prepare1 = IlpPacket.serializeIlpPrepare({
+      destination: destinationAccount,
+      amount: '100',
+      expiresAt: new Date(Date.now() + 2000),
+      executionCondition: this.executionCondition1,
+      data: this.pskRequest1
+    })
+  })
+
+  it('should expose the sharedSecret and destinationAccount', async function () {
+    assert.equal(this.socket.destinationAccount, 'test.receiver.-2ZDreU6l9g.AAAAAAAAAAAAAAAAAAAAAA')
+    assert.equal(this.socket.sharedSecret.toString('hex'), '54b12cf220a39bc25a2f54bfd1a3b058bf86d86cdf2ed9de3e2c292842bc92e4')
+  })
+
+  describe('receiveAmount', function () {
+    it('should wait until the amount specified has been received', async function () {
+      
+
+    })
+
+    it('should add to the receive limit, even if the receive limit has not been reached yet', async function () {
+
+    })
+  })
+
+  describe('handlePrepare', function () {
+    it('should reject packets if the socket is closed', async function () {
+      await this.socket.close()
+      const response = await this.receiver.handleData(this.prepare1)
+      assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
+        code: 'F02',
+        data: Buffer.alloc(0),
+        triggeredBy: 'test.receiver',
+        message: 'no socket'
+      })
+    })
+
+    it('should reject the packet if it cannot decrypt and deserialize the PSK data', async function () {
+      this.pskRequest1[10] = ~this.pskRequest1[10]
+      const prepare = IlpPacket.serializeIlpPrepare({
+        destination: this.socket.destinationAccount,
+        amount: '100',
+        expiresAt: new Date(Date.now() + 2000),
+        executionCondition: this.executionCondition1,
+        data: this.pskRequest1
+      })
+      const response = await this.receiver.handleData(prepare)
+      assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
+        code: 'F06',
+        data: Buffer.alloc(0),
+        triggeredBy: 'test.receiver.-2ZDreU6l9g.AAAAAAAAAAAAAAAAAAAAAA',
+        message: 'Unable to parse data'
+      })
+    })
+
+    it('should reject the packet if it doest not have a PSK2 "chunk" or "last chunk" packet', async function () {
+      const { sharedSecret, destinationAccount } = this.socket
+      const pskRequest = encoding.serializePskPacket(sharedSecret, {
+        type: 4,
+        paymentId: Buffer.alloc(16),
+        sequence: 0,
+        paymentAmount: new BigNumber(500),
+        chunkAmount: new BigNumber(0),
+        applicationData: Buffer.alloc(0)
+      })
+      const prepare = IlpPacket.serializeIlpPrepare({
+        destination: destinationAccount,
+        amount: '100',
+        expiresAt: new Date(Date.now() + 2000),
+        executionCondition: condition.fulfillmentToCondition(condition.dataToFulfillment(sharedSecret, pskRequest)),
+        data: pskRequest
+      })
+      const response = await this.receiver.handleData(prepare)
+      assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
+        code: 'F06',
+        data: Buffer.alloc(0),
+        triggeredBy: 'test.receiver.-2ZDreU6l9g.AAAAAAAAAAAAAAAAAAAAAA',
+        message: 'Unexpected request type'
+      })
+    })
+
+    it('should reject the chunk if the amount is less than specified in the PSK packet', async function () {
+      const { sharedSecret, destinationAccount } = this.socket
+      const pskRequest = encoding.serializePskPacket(sharedSecret, {
+        type: 0,
+        paymentId: Buffer.alloc(16),
+        sequence: 0,
+        paymentAmount: new BigNumber(500),
+        chunkAmount: new BigNumber(101),
+        applicationData: Buffer.alloc(0)
+      })
+      const prepare = IlpPacket.serializeIlpPrepare({
+        destination: destinationAccount,
+        amount: '100',
+        expiresAt: new Date(Date.now() + 2000),
+        executionCondition: condition.fulfillmentToCondition(condition.dataToFulfillment(sharedSecret, pskRequest)),
+        data: pskRequest
+      })
+      const response = await this.receiver.handleData(prepare)
+      const parsed = IlpPacket.deserializeIlpReject(response)
+      assert.equal(parsed.code, 'F99')
+      assert.equal(parsed.message, '')
+      assert.notEqual(parsed.data.length, 0)
+      assert.equal(encoding.deserializePskPacket(sharedSecret, parsed.data).chunkAmount.toString(10), '100')
+    })
+
+    it('should reject the chunk if it is unable to regenerate the right fulfillment', async function () {
+      const { destinationAccount } = this.socket
+      const prepare = IlpPacket.serializeIlpPrepare({
+        destination: destinationAccount,
+        amount: '100',
+        expiresAt: new Date(Date.now() + 2000),
+        executionCondition: Buffer.alloc(32),
+        data: this.pskRequest1
+      })
+      const response = await this.receiver.handleData(prepare)
+      const parsed = IlpPacket.deserializeIlpReject(response)
+      assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
+        code: 'F05',
+        data: Buffer.alloc(0),
+        triggeredBy: 'test.receiver.-2ZDreU6l9g.AAAAAAAAAAAAAAAAAAAAAA',
+        message: 'Condition generated does not match prepare'
+      })
+    })
+
+    it('should reject the chunk if the socket limit is 0', async function () {
+      const { sharedSecret } = this.socket
+      this.socket.setLimit(0)
+      const response = await this.receiver.handleData(this.prepare1)
+      const parsed = IlpPacket.deserializeIlpReject(response)
+      assert.equal(parsed.code, 'T99')
+      assert.equal(parsed.message, '')
+      // TODO check for the receiver indicating their limit
+    })
+
+    it('should reject the chunk if the amount would go too far over the limit', async function () {
+      const { sharedSecret } = this.socket
+      this.socket.setLimit(98)
+      const response = await this.receiver.handleData(this.prepare1)
+      const parsed = IlpPacket.deserializeIlpReject(response)
+      assert.equal(parsed.code, 'T99')
+      assert.equal(parsed.message, '')
+      // TODO check for the receiver indicating their limit
+    })
+
+    it('should fulfill the chunk and emit the money_received event', async function () {
+      const spy = sinon.spy()
+      this.socket.on('money_received', spy)
+      const response = await this.receiver.handleData(this.prepare1)
+      const parsed = IlpPacket.deserializeIlpFulfill(response)
+      assert.deepEqual(parsed.fulfillment, this.fulfillment1)
+      assert.equal(spy.callCount, 1)
+      // TODO the receiver should also indicate their limit
+    })
+
+    it('should disregard the payment ID and send all chunks with the same token to the same socket', async function () {
+      const spy = sinon.spy()
+      this.socket.on('money_received', spy)
+      await this.receiver.handleData(this.prepare1)
+
+      const { destinationAccount, sharedSecret } = this.socket
+      const paymentId = Buffer.alloc(16, 'FF', 'hex')
+      const pskRequest2 = encoding.serializePskPacket(sharedSecret, {
+        type: 0,
+        paymentId,
+        sequence: 0,
+        paymentAmount: new BigNumber(500),
+        chunkAmount: new BigNumber(0),
+        applicationData: Buffer.alloc(0)
+      })
+      const fulfillment2 = condition.dataToFulfillment(sharedSecret, pskRequest2)
+      const executionCondition2 = condition.fulfillmentToCondition(fulfillment2)
+      const prepare2 = IlpPacket.serializeIlpPrepare({
+        destination: destinationAccount,
+        amount: '200',
+        expiresAt: new Date(Date.now() + 2000),
+        executionCondition: executionCondition2,
+        data: pskRequest2
+      })
+      await this.receiver.handleData(prepare2)
+
+      assert.equal(spy.callCount, 2)
+    })
+
+    it('should respond to a quote request sent with quoteSourceAmount', async function () {
+      const quote = await quoteSourceAmount(this.plugin, {
+        sharedSecret: this.socket.sharedSecret,
+        destinationAccount: this.socket.destinationAccount,
+        sourceAmount: 100
+      })
+      assert.equal(quote.destinationAmount, '50')
+    })
+
+    it('should accept a payment sent using sendSingleChunk', async function () {
+      const spy = sinon.spy()
+      this.socket.on('money_received', spy)
+
+      await sendSingleChunk(this.plugin, {
+        sharedSecret: this.socket.sharedSecret,
+        destinationAccount: this.socket.destinationAccount,
+        sourceAmount: 10
+      })
+
+      assert.equal(spy.callCount, 1)
+      assert.equal(spy.args[0][0], '5')
+    })
   })
 })

@@ -1,5 +1,3 @@
-'use strict'
-
 import * as assert from 'assert'
 import * as crypto from 'crypto'
 import * as Debug from 'debug'
@@ -11,6 +9,7 @@ import * as constants from './constants'
 import { serializePskPacket, deserializePskPacket, PskPacket } from './encoding'
 import { dataToFulfillment, fulfillmentToCondition } from './condition'
 import * as ILDCP from 'ilp-protocol-ildcp'
+import { EventEmitter2 } from 'eventemitter2'
 
 const RECEIVER_ID_STRING = 'ilp_psk2_receiver_id'
 const PSK_GENERATION_STRING = 'ilp_psk2_generation'
@@ -71,12 +70,179 @@ export interface PaymentReceived {
   chunksFulfilled: number
 }
 
+export interface ReceiveSocketOpts {
+  destinationAccount: string,
+  sharedSecret: Buffer
+}
+
+/**
+ * Payment socket for receiving ILP payments.
+ *
+ * The socket will automatically fulfill incoming ILP Prepare packets. If there is a receive limit set, it will reject packets after that is reached.
+ */
+export class ReceiveSocket extends EventEmitter2 {
+  public readonly destinationAccount: string
+  public readonly sharedSecret: Buffer
+  protected amountReceived: BigNumber
+  protected receiveLimit?: BigNumber
+  protected closed: boolean
+  protected chunksFulfilled: number
+  protected chunksRejected: number
+  // TODO should you be able to access these values?
+
+  constructor (opts: ReceiveSocketOpts) {
+    super()
+
+    this.destinationAccount = opts.destinationAccount
+    this.sharedSecret = opts.sharedSecret
+    this.amountReceived = new BigNumber(0)
+    this.closed = false
+    this.chunksFulfilled = 0
+    this.chunksRejected = 0
+
+    // TODO keep track of sequence numbers we've seen
+  }
+
+  /**
+   * Set the limit of how much the socket will receive (by default there is no limit)
+   */
+  setLimit (amount: BigNumber | string | number): void {
+    this.receiveLimit = new BigNumber(amount)
+  }
+
+  /**
+   * Raise the receive limit by the given amount and returns a Promise that resolves when that much has been received.
+   *
+   * Note that this will raise the receive limit from whatever it is 
+   */
+  async receiveAmount (amount: BigNumber | string | number): Promise<void> {
+    if (!this.receiveLimit) {
+      this.receiveLimit = new BigNumber(0)
+    }
+    const amountToWaitFor = this.receiveLimit.plus(amount)
+    this.receiveLimit = amountToWaitFor
+    await new Promise((resolve, reject) => {
+      const chunkListener = () => {
+        if (this.amountReceived.greaterThanOrEqualTo(amountToWaitFor)) {
+          this.removeListener('money_received', chunkListener)
+          resolve()
+        }
+      }
+      this.on('money_received', chunkListener)
+    })
+  }
+
+  // TODO should there be an end method?
+  async close (): Promise<void> {
+    this.closed = true
+    // TODO maybe don't emit this right away so that we have time to get another chunk from the sender and reject it
+    this.emit('close')
+    // TODO only emit end once we've told the sender
+    this.emit('end')
+    debug('socket closed')
+  }
+
+  /* @private */
+  async handlePrepare (prepare: IlpPacket.IlpPrepare): Promise<Buffer> {
+    debug('got incoming prepare:', JSON.stringify(prepare))
+    if (this.closed) {
+      debug('rejecting incoming prepare because socket is closed')
+      // TODO return PSK error saying socket is closed
+      return this.reject('F99', 'socket is closed', Buffer.alloc(0))
+    }
+
+    let request: PskPacket
+    try {
+      request = deserializePskPacket(this.sharedSecret, prepare.data)
+    } catch (err) {
+      debug('error decrypting data:', err, prepare.data.toString('hex'))
+      return this.reject('F06', 'Unable to parse data')
+    }
+
+    if (request.type !== constants.TYPE_PSK2_CHUNK && request.type !== constants.TYPE_PSK2_LAST_CHUNK) {
+      debug(`got unexpected request type: ${request.type}`)
+      // TODO should this be a different error code?
+      // (this might be a sign that they're using a different version of the protocol)
+      // TODO should this type of response be encrypted?
+      return this.reject('F06', 'Unexpected request type')
+    }
+
+    debug(`received prepare for: ${prepare.amount}, amount received previously: ${this.amountReceived}, receive limit: ${this.receiveLimit}`)
+
+    if (request.chunkAmount.greaterThan(prepare.amount)) {
+      debug(`rejecting chunk because the amount is less than the sender told us to accept. actual: ${prepare.amount}, expected: ${request.chunkAmount}`)
+      return this.reject('F99', '', serializePskPacket(this.sharedSecret, {
+        type: constants.TYPE_PSK2_ERROR,
+        paymentId: request.paymentId,
+        sequence: request.sequence,
+        chunkAmount: new BigNumber(prepare.amount),
+        paymentAmount: this.amountReceived
+      }))
+    }
+
+    // Generate fulfillment and make sure it matches
+    const fulfillment = dataToFulfillment(this.sharedSecret, prepare.data)
+    const generatedCondition = fulfillmentToCondition(fulfillment)
+    if (!generatedCondition.equals(prepare.executionCondition)) {
+      debug(`condition generated does not match prepare. actual: ${base64url(generatedCondition)}, expected: ${base64url(prepare.executionCondition)}`)
+      return this.reject('F05', 'Condition generated does not match prepare')
+    }
+
+    if (this.receiveLimit) {
+      const maxAmountToAccept = this.receiveLimit
+        .times(1.01).round(0, BigNumber.ROUND_CEIL)
+        .minus(this.amountReceived)
+      if (maxAmountToAccept.lessThan(prepare.amount)) {
+        debug(`rejecting prepare because it exceeds the max amount we will accept: ${maxAmountToAccept}`)
+        // TODO reject saying we've got too much right now
+        return this.reject('T99', '', serializePskPacket(this.sharedSecret, {
+          type: constants.TYPE_PSK2_ERROR,
+          paymentId: request.paymentId,
+          sequence: request.sequence,
+          chunkAmount: new BigNumber(prepare.amount),
+          paymentAmount: this.amountReceived
+          // additionalExpected: new BigNumber(0)
+        }))
+      }
+    }
+
+    // Fulfill
+    this.amountReceived = this.amountReceived.plus(prepare.amount)
+    this.emit('money_received', prepare.amount)
+    const additionalExpected = (this.receiveLimit ? BigNumber.max(0, this.receiveLimit.minus(this.amountReceived)) : constants.MAX_UINT64)
+    const pskResponse = serializePskPacket(this.sharedSecret, {
+      type: constants.TYPE_PSK2_FULFILLMENT,
+      paymentId: request.paymentId,
+      sequence: request.sequence,
+      paymentAmount: this.amountReceived,
+      chunkAmount: new BigNumber(prepare.amount)
+      // additionalExpected
+    })
+    debug(`fulfilling packet, telling sender we want ${additionalExpected}`)
+    this.chunksFulfilled += 1
+    return IlpPacket.serializeIlpFulfill({
+      fulfillment,
+      data: pskResponse
+    })
+  }
+
+  protected reject (code: string, message?: string, data?: Buffer) {
+    this.chunksRejected += 1
+    return IlpPacket.serializeIlpReject({
+      code,
+      message: message || '',
+      data: data || Buffer.alloc(0),
+      triggeredBy: this.destinationAccount
+    })
+  }
+}
+
 /**
  * Params for instantiating a Receiver using the [`createReceiver`]{@link createReceiver} function.
  */
 export interface ReceiverOpts {
   plugin: PluginV2 | PluginV1,
-  paymentHandler: PaymentHandler,
+  paymentHandler?: PaymentHandler,
   secret?: Buffer
 }
 
@@ -95,17 +261,21 @@ export class Receiver {
   protected address: string
   protected payments: Object
   protected connected: boolean
+  protected sockets: Map<string, ReceiveSocket>
+  protected usingSocketApi: boolean
 
   constructor (plugin: PluginV2 | PluginV1, secret: Buffer) {
     this.plugin = convertToV2Plugin(plugin)
     assert(secret.length >= 32, 'secret must be at least 32 bytes')
     this.secret = secret
-    // TODO is the receiver ID necessary if ILDCP will return different addresses for each listener?
+    // TODO remove receiverId, since the ILP address will be different for each ILDCP query
     this.receiverId = getReceiverId(this.secret)
     this.paymentHandler = this.defaultPaymentHandler
     this.address = ''
     this.payments = {}
     this.connected = false
+    this.sockets = new Map()
+    this.usingSocketApi = false
   }
 
   /**
@@ -146,6 +316,9 @@ export class Receiver {
    * The user must call `accept` or `acceptSingleChunk` to make the Receiver fulfill the payment.
    */
   registerPaymentHandler (handler: PaymentHandler): void {
+    if (this.usingSocketApi) {
+      throw new Error('ReceiveSockets and payment handlers cannot be used at the same time')
+    }
     debug('registered payment handler')
     /* tslint:disable-next-line:strict-type-predicates */
     assert(typeof handler === 'function', 'payment handler must be a function')
@@ -175,6 +348,38 @@ export class Receiver {
     }
   }
 
+  createReceiveSocket (token = crypto.randomBytes(16)): ReceiveSocket {
+    if (this.paymentHandler !== this.defaultPaymentHandler) {
+      throw new Error('ReceiveSockets and payment handlers cannot be used at the same time')
+    }
+    this.usingSocketApi = true
+
+    if (!this.connected) {
+      throw new Error('receiver is not connected')
+    }
+    const token64 = base64url(token)
+    const destinationAccount = `${this.address}.${this.receiverId}.${token64}`
+    const sharedSecret = generateSharedSecret(this.secret, token)
+    let socket = this.sockets.get(token64)
+    if (socket) {
+      return socket
+    } else {
+      socket = new ReceiveSocket({
+        destinationAccount,
+        sharedSecret
+      })
+      // Defaults to very high limit, but the user can set it lower if they want
+      socket.setLimit(constants.MAX_UINT64)
+      debug(`created new socket with token: ${token64} and receive limit: ${constants.MAX_UINT64}`)
+      this.sockets.set(token64, socket)
+      socket.once('close', () => {
+        debug('removing socket:', token64)
+        this.sockets.delete(token64)
+      })
+      return socket
+    }
+  }
+
   protected async defaultPaymentHandler (params: PaymentHandlerParams): Promise<void> {
     debug(`Receiver has no handler registered, rejecting payment ${params.id.toString('hex')}`)
     return params.reject('Receiver has no payment handler registered')
@@ -193,17 +398,38 @@ export class Receiver {
   protected handleData = async (data: Buffer): Promise<Buffer> => {
     let prepare: IlpPacket.IlpPrepare
     let sharedSecret: Buffer
+    let token: Buffer
 
     try {
       prepare = IlpPacket.deserializeIlpPrepare(data)
       const parsedAccount = parseAccount(prepare.destination)
+      token = parsedAccount.token
 
-      assert(parsedAccount.receiverId === this.receiverId, 'payment is for a different receiver')
+      if (parsedAccount.receiverId !== this.receiverId) {
+        throw new Error(`payment is for a different receiver. actual: ${parsedAccount.receiverId}, expected: ${this.receiverId}`)
+      }
 
       sharedSecret = generateSharedSecret(this.secret, parsedAccount.token)
     } catch (err) {
       debug('error parsing incoming prepare:', err)
       return this.reject('F06', 'Payment is not for this receiver')
+    }
+
+    // Pass the packet to the ReceiveSocket if we are using those (instead of payment handlers)
+    if (this.usingSocketApi) {
+      const socket = this.sockets.get(base64url(token))
+      if (socket) {
+        debug('got incoming prepare for socket:', base64url(token))
+        return socket.handlePrepare(prepare)
+      } else {
+        debug('no socket listening for token:', token)
+        return IlpPacket.serializeIlpReject({
+          code: 'F02',
+          data: Buffer.alloc(0),
+          triggeredBy: this.address,
+          message: 'no socket'
+        })
+      }
     }
 
     let request: PskPacket
@@ -425,7 +651,9 @@ export async function createReceiver (opts: ReceiverOpts): Promise<Receiver> {
     secret = crypto.randomBytes(32)
   } = opts
   const receiver = new Receiver(plugin, secret)
-  receiver.registerPaymentHandler(paymentHandler)
+  if (paymentHandler) {
+    receiver.registerPaymentHandler(paymentHandler)
+  }
   await receiver.connect()
   return receiver
 }

@@ -17,8 +17,6 @@ const TRANSFER_DECREASE = 0.5
 // Chunked payments are still experimental so we want to warn the user (but only once per use of the module)
 let warnedUserAboutChunkedPayments = false
 
-export type Amount = BigNumber | string | number
-
 /** Parameters for the [`quoteSourceAmount`]{@link quoteSourceAmount} method. */
 export interface QuoteSourceParams {
   /**
@@ -197,7 +195,7 @@ export class SendSocket extends EventEmitter2 {
   }
 
   // TODO emit events when each chunk is sent
-  setLimit (amount: Amount): void {
+  setLimit (amount: BigNumber | string | number): void {
     const amountToAdd = new BigNumber(amount).minus(this.sendLimit)
     this.sendLimit = BigNumber.max(amount, 0)
     this.debug(`set limit to: ${this.sendLimit}`)
@@ -222,6 +220,8 @@ export class SendSocket extends EventEmitter2 {
       })
     }
   }
+
+  // TODO add sendSourceAmount
 
   async getRate (): Promise<BigNumber> {
     assert(this.connected, 'socket must be connected to get rate')
@@ -347,7 +347,7 @@ async function quote (
 
     amountArrived = quoteResponse.chunkAmount
   } catch (decryptionErr) {
-    debug('error parsing encrypted quote response', decryptionErr, result.toString('base64'))
+    debug('error parsing encrypted quote response', decryptionErr, result && result.toString('base64'))
     throw new Error('unable to parse quote response')
   }
 
@@ -460,7 +460,7 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
   assert(sharedSecret, 'sharedSecret is required')
   assert(sharedSecret.length >= 32, 'sharedSecret must be at least 32 bytes')
   assert(sourceAmount, 'sourceAmount is required')
-  assert(!id || (Buffer.isBuffer(id) && id.length === 16), 'id must be a 16-byte buffer if supplied')
+  assert(Buffer.isBuffer(id) && id.length === 16, 'id must be a 16-byte buffer if supplied')
 
   debug(`sending single chunk payment ${id.toString('hex')} with source amount: ${sourceAmount} and minimum destination amount: ${minDestinationAmount}`)
 
@@ -486,12 +486,17 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
 
   const result = await plugin.sendData(ilp)
 
+  if (!Buffer.isBuffer(result)) {
+    debug('got something other than a buffer from plugin.sendData:', result)
+    throw new Error('Invalid response from plugin.sendData. Expected a Buffer, got: ' + typeof result)
+  }
+
   let parsed
   try {
     parsed = IlpPacket.deserializeIlpPacket(result)
   } catch (err) {
     debug('error parsing sendData response:', err, 'response:', result.toString('base64'))
-    throw err
+    throw new Error('Unable to parse ILP packet from response to plugin.sendData: ' + err.message)
   }
 
   let fulfillmentInfo: IlpPacket.IlpFulfill

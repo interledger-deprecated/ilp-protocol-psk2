@@ -313,11 +313,13 @@ export class Receiver {
     }
     // Support the old PaymentHandler API for now
     if (this.usingRequestHandlerApi && !isLegacy) {
-      if (!encoding.isPskRequest(packet)) {
+      if (packet.type !== encoding.Type.Request) {
         // TODO should this be a different error?
         debug('packet is not a PSK Request (should be type 4):', packet)
         return this.reject('F06', 'Unexpected packet type')
       }
+      packet = packet as encoding.PskPacket
+
       // Check if the amount we received is enough
       // Note: this check must come before the fulfillment one in order for unfulfillable test payments to be used as quotes
       if (packet.amount.greaterThan(prepare.amount)) {
@@ -362,11 +364,13 @@ export class Receiver {
       }
     } else if (this.usingRequestHandlerApi && isLegacy) {
       // Legacy packets (will be removed soon)
-      if (!encoding.isLegacyPacket(packet)) {
+      if (packet.type !== constants.TYPE_PSK2_CHUNK && packet.type !== constants.TYPE_PSK2_LAST_CHUNK) {
         debug('got packet with unrecognized PSK type: ', packet)
         // TODO should this be a different error?
         return this.reject('F06', 'Unsupported type')
       }
+
+      packet = packet as encoding.LegacyPskPacket
 
       // Transfer amount too low
       if (packet.chunkAmount.gt(prepare.amount)) {

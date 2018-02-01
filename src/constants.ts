@@ -4,7 +4,10 @@ import BigNumber from 'bignumber.js'
 export const TYPE_PSK2_CHUNK = 0
 export const TYPE_PSK2_LAST_CHUNK = 1
 export const TYPE_PSK2_FULFILLMENT = 2
-export const TYPE_PSK2_ERROR = 3
+export const TYPE_PSK2_REJECT = 3
+export const TYPE_PSK2_REQUEST = 4
+export const TYPE_PSK2_RESPONSE = 5
+export const TYPE_PSK2_ERROR = 6
 
 // PSK Parameters
 export const PSK_FULFILLMENT_STRING = 'ilp_psk2_fulfillment'

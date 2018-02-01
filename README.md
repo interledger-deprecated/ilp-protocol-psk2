@@ -32,10 +32,10 @@ Uses [`createReceiver`](https://interledgerjs.github.io/ilp-protocol-psk2/module
 const { createReceive } = require('ilp-protocol-psk2')
 const receiver = await createReceiver({
   plugin: myLedgerPlugin,
-  paymentHandler: async (params) => {
+  requestHandler: (params) => {
     // Accept all incoming payments
-    const result = await params.accept()
-    console.log('Got payment for:', result.receivedAmount)
+    params.accept()
+    console.log(`Got payment for: ${params.amount} with data: ${params.data.toString()}`)
   }
 })
 

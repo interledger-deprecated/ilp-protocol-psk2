@@ -55,7 +55,7 @@ describe('Sender', function () {
         code: 'F99',
         message: '',
         triggeredBy: 'test.receiver',
-        data: encoding.serializePskPacket(SHARED_SECRET, {
+        data: encoding.serializeLegacyPskPacket(SHARED_SECRET, {
           type: 3,
           sequence: 0,
           paymentId: PAYMENT_ID,
@@ -78,7 +78,7 @@ describe('Sender', function () {
         amount: '10',
         executionCondition: QUOTE_CONDITION,
         expiresAt: new Date(30000),
-        data: encoding.serializePskPacket(SHARED_SECRET, {
+        data: encoding.serializeLegacyPskPacket(SHARED_SECRET, {
           type: 1,
           paymentId: PAYMENT_ID,
           sequence: 0,
@@ -107,7 +107,7 @@ describe('Sender', function () {
         code: 'F99',
         message: '',
         triggeredBy: 'test.receiver',
-        data: encoding.serializePskPacket(wrongSecret, {
+        data: encoding.serializeLegacyPskPacket(wrongSecret, {
           type: 3,
           sequence: 0,
           paymentId: PAYMENT_ID,
@@ -157,7 +157,7 @@ describe('Sender', function () {
         code: 'F99',
         message: '',
         triggeredBy: 'test.receiver',
-        data: encoding.serializePskPacket(SHARED_SECRET, {
+        data: encoding.serializeLegacyPskPacket(SHARED_SECRET, {
           type: 3,
           sequence: 0,
           paymentId: PAYMENT_ID,
@@ -180,7 +180,7 @@ describe('Sender', function () {
         amount: '1000',
         executionCondition: QUOTE_CONDITION,
         expiresAt: new Date(30000),
-        data: encoding.serializePskPacket(SHARED_SECRET, {
+        data: encoding.serializeLegacyPskPacket(SHARED_SECRET, {
           type: 1,
           paymentId: PAYMENT_ID,
           sequence: 0,
@@ -208,7 +208,7 @@ describe('Sender', function () {
     beforeEach(function () {
       this.plugin.sendData = (buffer: Buffer) => Promise.resolve(IlpPacket.serializeIlpFulfill({
         fulfillment: Buffer.from('0de77e566fd39f0b9ea26bb10e4b6aa3ff813eee37758caf0c1adfd69edd572b', 'hex'),
-        data: encoding.serializePskPacket(SHARED_SECRET, {
+        data: encoding.serializeLegacyPskPacket(SHARED_SECRET, {
           type: 2,
           paymentId: PAYMENT_ID,
           sequence: 0,
@@ -234,7 +234,7 @@ describe('Sender', function () {
         amount: '100',
         executionCondition: Buffer.from('dbe5899c51056feae0d6b42dc8677f40a5452ca03512f058d95132c2cf5b7bf8', 'hex'),
         expiresAt: new Date(30000),
-        data: encoding.serializePskPacket(SHARED_SECRET, {
+        data: encoding.serializeLegacyPskPacket(SHARED_SECRET, {
           type: 1,
           paymentId: PAYMENT_ID,
           sequence: 0,
@@ -250,7 +250,7 @@ describe('Sender', function () {
       const stub = sinon.stub(this.plugin, 'sendData')
         .resolves(IlpPacket.serializeIlpFulfill({
           fulfillment: Buffer.from('W1FuCUSj7DXLzQMGlWC7HxbTHs6jOVRtAh5uITnmzWY=', 'base64'),
-          data: encoding.serializePskPacket(SHARED_SECRET, {
+          data: encoding.serializeLegacyPskPacket(SHARED_SECRET, {
             type: 2,
             paymentId: Buffer.alloc(16, 5),
             sequence: 5,
@@ -274,7 +274,7 @@ describe('Sender', function () {
         amount: '100',
         executionCondition: Buffer.from('3b06f0bb996ebfebc485ba91418b59e99fa8b0ab610670df1c1a13c34d416c57', 'hex'),
         expiresAt: new Date(30000),
-        data: encoding.serializePskPacket(SHARED_SECRET, {
+        data: encoding.serializeLegacyPskPacket(SHARED_SECRET, {
           type: 0,
           paymentId: Buffer.alloc(16, 5),
           sequence: 5,
@@ -325,7 +325,7 @@ describe('Sender', function () {
         code: 'F99',
         message: '',
         triggeredBy: 'test.receiver',
-        data: encoding.serializePskPacket(SHARED_SECRET, {
+        data: encoding.serializeLegacyPskPacket(SHARED_SECRET, {
           type: 3,
           paymentId: PAYMENT_ID,
           sequence: 0,
@@ -416,7 +416,7 @@ describe('Sender', function () {
     it('rejects if the PSK response packet sequence does not correspond to the request', async function () {
       this.plugin.sendData = (buffer: Buffer) => Promise.resolve(IlpPacket.serializeIlpFulfill({
         fulfillment: Buffer.from('Ded+Vm/TnwueomuxDktqo/+BPu43dYyvDBrf1p7dVys=', 'base64'),
-        data: encoding.serializePskPacket(SHARED_SECRET, {
+        data: encoding.serializeLegacyPskPacket(SHARED_SECRET, {
           type: 3,
           paymentId: PAYMENT_ID,
           sequence: 5,

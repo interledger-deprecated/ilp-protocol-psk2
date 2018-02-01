@@ -7,14 +7,12 @@ import { default as convert, PluginV1, PluginV2 } from 'ilp-compat-plugin'
 import * as constants from './constants'
 import { serializeLegacyPskPacket, deserializeLegacyPskPacket, LegacyPskPacket } from './encoding'
 import { dataToFulfillment, fulfillmentToCondition } from './condition'
+import { deprecate } from 'util'
 
 const DEFAULT_TRANSFER_TIMEOUT = 30000
 const STARTING_TRANSFER_AMOUNT = 1000
 const TRANSFER_INCREASE = 1.1
 const TRANSFER_DECREASE = 0.5
-
-// Chunked payments are still experimental so we want to warn the user (but only once per use of the module)
-let warnedUserAboutChunkedPayments = false
 
 /** Parameters for the [`quoteSourceAmount`]{@link quoteSourceAmount} method. */
 export interface QuoteSourceParams {
@@ -301,40 +299,6 @@ async function quote (
  *   })
  *   console.log(`Sent payment of ${result.sourceAmount}, receiver got ${result.destinationAmount}`)
  * ```
- *
- * @example <caption>Streaming payments</caption>
- * ```typescript
- *   import { randomBytes } from 'crypto'
- *   import { sendSingleChunk } from 'ilp-protocol-psk2'
- *
- *   // These values must be communicated beforehand for the sender to send a payment
- *   const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()
- *
- *   const id = randomBytes(16)
- *   let sequence = 0
- *   const firstChunkResult = await sendSingleChunk(myLedgerPlugin, {
- *     destinationAccount,
- *     sharedSecret,
- *     sourceAmount,
- *     minDestinationAmount: '0',
- *     id,
- *     sequence,
- *     lastChunk: false
- *   })
- *
- *  // Repeat as many times as desired, incrementing the sequence each time
- *  // Note that the path exchange rate can be determined by dividing the destination amount returned by the chunk amount sent
- *
- *   const lastChunkResult = await sendSingleChunk(myLedgerPlugin, {
- *     destinationAccount,
- *     sharedSecret,
- *     sourceAmount,
- *     minDestinationAmount: '0',
- *     id,
- *     sequence,
- *     lastChunk: true
- *   })
- * ```
  */
 export async function sendSingleChunk (plugin: any, params: SendSingleChunkParams | SendSingleChunkAdvancedParams): Promise<SendResult> {
   plugin = convert(plugin)
@@ -446,11 +410,7 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
 }
 
 /**
- * **Experimental** method for sending a chunked payment with a fixed source amount.
- *
- * The sender will keep sending payment chunks until the given source amount has been sent.
- *
- * **Note:** Chunked payments may be interrupted in the middle, for example if the path runs out of liquidity. This method should be used with caution.
+ * @deprecated PSK2 no longer includes chunked payments. They will be implemented in a separate protocol / module.
  */
 export async function sendSourceAmount (plugin: any, params: SendSourceParams): Promise<SendResult> {
   assert(params.sourceAmount, 'sourceAmount is required')
@@ -458,11 +418,7 @@ export async function sendSourceAmount (plugin: any, params: SendSourceParams): 
 }
 
 /**
- * **Experimental** method for sending a chunked payment with a fixed destination amount.
- *
- * The sender will keep sending payment chunks until the receiver says they have gotten the given destination amount. **This method SHOULD NOT be used with untrusted receivers.**
- *
- * **Note**: Chunked payments may be interrupted in the middle and the path exchange rate may change while a payment is being sent. **This method should be used with EXTREME CAUTION.**
+ * @deprecated PSK2 no longer includes chunked payments. They will be implemented in a separate protocol / module.
  */
 export async function sendDestinationAmount (plugin: any, params: SendDestinationParams): Promise<SendResult> {
   // TODO allow setting a maximum source amount? (the problem would be that even if you hit the max, you still would have sent it without delivering the destination amount)
@@ -478,7 +434,7 @@ interface ChunkedPaymentParams {
   id?: Buffer
 }
 // TODO accept user data also
-async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): Promise<SendResult> {
+const sendChunkedPayment = deprecate(async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): Promise<SendResult> {
   const {
     sharedSecret,
     destinationAccount,
@@ -492,11 +448,6 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
   assert((Buffer.isBuffer(id) && id.length === 16), 'id must be a 16-byte buffer if supplied')
   plugin = convert(plugin)
   const debug = Debug('ilp-protocol-psk2:chunkedPayment')
-
-  if (!warnedUserAboutChunkedPayments) {
-    console.warn('WARNING: PSK2 Chunked Payments are experimental. Money can be lost if an error occurs mid-payment or if the exchange rate changes dramatically! This should not be used for payments that are significantly larger than the path\'s Maximum Payment Size.')
-    warnedUserAboutChunkedPayments = true
-  }
 
   let amountSent = new BigNumber(0)
   let amountDelivered = new BigNumber(0)
@@ -665,4 +616,4 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
     chunksFulfilled,
     chunksRejected
   }
-}
+}, 'Chunked payments are deprecated in this module and will be removed in the next version. Chunked payments will be implemented by a separate protocol / module that properly handles segmentation and reassembly of money and data.')

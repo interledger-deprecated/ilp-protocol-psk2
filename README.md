@@ -9,7 +9,6 @@
 
 - End-to-End Quoting
 - Single Payments
-- Streaming Payments
 - **(Experimental)** Chunked Payments
 
 ## Installation
@@ -104,9 +103,3 @@ const lastChunkResult = await sendSingleChunk(myLedgerPlugin, {
   lastChunk: true
 })
 ```
-
-### Experimental Chunked Payments
-
-**WARNING:** PSK2 Chunked Payments are experimental. Money can be lost if an error occurs mid-payment or if the exchange rate changes dramatically! This should not be used for payments that are significantly larger than the path's Maximum Payment Size.
-
-See [`sendSourceAmount`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsourceamount) and [`sendDestinationAmount`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#senddestinationamount).

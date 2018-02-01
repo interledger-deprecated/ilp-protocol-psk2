@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
 import * as IlpPacket from 'ilp-packet'
 import BigNumber from 'bignumber.js'
+import * as ILDCP from 'ilp-protocol-ildcp'
 
 export interface DataHandler {
   (data: Buffer): Promise<Buffer>
@@ -42,6 +43,13 @@ export default class MockPlugin extends EventEmitter {
   async sendData (data: Buffer): Promise<Buffer> {
     if (data[0] === IlpPacket.Type.TYPE_ILP_PREPARE) {
       const parsed = IlpPacket.deserializeIlpPrepare(data)
+      if (parsed.destination === 'peer.config') {
+        return ILDCP.serializeIldcpResponse({
+          clientAddress: 'test.receiver',
+          assetScale: 9,
+          assetCode: 'ABC'
+        })
+      }
       const newPacket = IlpPacket.serializeIlpPrepare({
         ...parsed,
         amount: new BigNumber(parsed.amount).times(this.exchangeRate).toString(10)

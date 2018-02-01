@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js'
 import * as IlpPacket from 'ilp-packet'
 import { default as convert, PluginV1, PluginV2 } from 'ilp-compat-plugin'
 import * as constants from './constants'
-import { serializeLegacyPskPacket, deserializeLegacyPskPacket, LegacyPskPacket } from './encoding'
+import * as encoding from './encoding'
 import { dataToFulfillment, fulfillmentToCondition } from './condition'
 import { deprecate } from 'util'
 
@@ -13,6 +13,287 @@ const DEFAULT_TRANSFER_TIMEOUT = 30000
 const STARTING_TRANSFER_AMOUNT = 1000
 const TRANSFER_INCREASE = 1.1
 const TRANSFER_DECREASE = 0.5
+
+/** Parameters for the [`sendRequest`]{@link sendRequest} method */
+export interface SendRequestParams {
+  /** Shared secret from the Receiver (generated with the [`generateAddressAndSecret`]{@link Receiver.generateAddressAndSecret} method). */
+  sharedSecret: Buffer,
+  /** Destination account of the Receiver (generated with the [`generateAddressAndSecret`]{@link Receiver.generateAddressAndSecret} method). */
+  destinationAccount: string,
+  /** Amount to send, denominated in the minimum units on the sender's ledger */
+  sourceAmount: BigNumber | string | number,
+  /** Data to send to the receiver (will be encrypted and authenticated) */
+  data?: Buffer,
+  /** Minimum destination amount the receiver should accept, denominated in the minimum units of the receiver's ledger */
+  minDestinationAmount?: BigNumber | string | number,
+  /** Optional ID for the request, which is used to correlate requests and responses. Defaults to a random UInt32 */
+  requestId?: number,
+  /** Expiry time for the ILP Prepare packet, defaults to 30 seconds from when the request is created */
+  expiresAt?: Date,
+  // TODO should this be an enum instead?
+  /**
+   * Option to use an unfulfillable condition. For example, this may be used to send test payments for quotes.
+   *
+   * If set to `'random'`, it will generate a random 32-byte condition. If set to `'zeros'`, it will set the condition to a 32-byte buffer filled with zeros.
+   */
+  unfulfillableCondition?: 'random' | 'zeros'
+}
+
+/** Successful response indicating the payment was sent */
+export interface PskResponse {
+  // TODO should there be a field like "fulfilled" for developers who are not using Typescript?
+  /**
+   * Amount that the receiver says they received. Note: you must trust the receiver not to lie about this.
+   *
+   * If the PSK packet the receiver sends back is tampered with or otherwise not understandable, this will be set to 0.
+   */
+  destinationAmount: BigNumber,
+  /**
+   * Authenticated response from the receiver.
+   *
+   * If the PSK packet the receiver sends back is tampered with or otherwise not understandable, this will be set to an empty buffer.
+   */
+  data: Buffer
+}
+
+/** Error response indicating the payment was rejected */
+export interface PskError {
+  /** ILP Error Code (for example, `'F99'`) */
+  code: string,
+  /** Error message. Note this is **not** authenticated and does not necessarily come from the receiver */
+  message: string,
+  /** ILP Address of the party that rejected the packet */
+  triggeredBy: string,
+  /**
+   * Amount that the receiver says they received. Note: you must trust the receiver not to lie about this.
+   *
+   * If the PSK packet the receiver sends back is tampered with or otherwise not understandable, this will be set to 0.
+   */
+  destinationAmount: BigNumber,
+  /**
+   * Authenticated response from the receiver.
+   *
+   * If the PSK packet the receiver sends back is tampered with or otherwise not understandable, this will be set to an empty buffer.
+   */
+  data: Buffer
+}
+
+export function isPskResponse (result: PskResponse | PskError): result is PskResponse {
+  return !result.hasOwnProperty('code')
+}
+
+export function isPskError (result: PskResponse | PskError): result is PskError {
+  return result.hasOwnProperty('code')
+}
+
+/**
+ * Send a PSK2 request. This may be any of: a one-off payment, an unfulfillable packet for a quote, or one chunk of a streaming payment.
+ *
+ * @example <caption>One-off payment</caption>
+ * ```typescript
+ *   import { sendRequest } from 'ilp-protocol-psk2'
+ *
+ *   // These values must be communicated beforehand for the sender to send a payment
+ *   const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()
+ *
+ *   const { destinationAmount, data } = await sendRequest(myLedgerPlugin, {
+ *     destinationAccount,
+ *     sharedSecret,
+ *     destinationAmount: '1000',
+ *     data: Buffer.from('hello', 'utf8')
+ *   })
+ *
+ *   console.log(`Sent payment of: 1000. Receiver got: ${result.destinationAmount}`)
+ *   console.log(`Receiver responded: ${data.toString('utf8')}`)
+ *   // Note the data encoding and content is up to the application
+ * ```
+ *
+ * @example <caption>Quote (unfulfillable test payment)</caption>
+ * ```typescript
+ *   import { sendRequest } from 'ilp-protocol-psk2'
+ *
+ *   // These values must be communicated beforehand for the sender to send a payment
+ *   const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()
+ *
+ *   const { destinationAmount, data } = await sendRequest(myLedgerPlugin, {
+ *     destinationAccount,
+ *     sharedSecret,
+ *     destinationAmount: '1000',
+ *     unfulfillableCondition: 'random'
+ *   })
+ *   const rate = destinationAmount.dividedBy('1000')
+ *
+ *   console.log(`Path exchange rate is: ${rate}`)
+ * ```
+ */
+export async function sendRequest (plugin: PluginV2, params: SendRequestParams): Promise<PskResponse | PskError> {
+  const debug = Debug('ilp-psk2:sendRequest')
+
+  const requestId = (typeof params.requestId === 'number' ? params.requestId : Math.floor(Math.random() * (constants.MAX_UINT32 + 1)))
+  const sourceAmount = new BigNumber(params.sourceAmount)
+
+  // If the minDestinationAmount is provided, use that
+  // Otherwise, set it to 0 unless the unfulfillableCondition is set, in which case we set it to the maximum value
+  // (This ensures that receivers will respond with the amount they received, as long as they check the amount before the condition)
+  let minDestinationAmount: BigNumber
+  if (params.minDestinationAmount !== undefined) {
+    minDestinationAmount = new BigNumber(params.minDestinationAmount)
+  } else if (params.unfulfillableCondition !== undefined) {
+    minDestinationAmount = constants.MAX_UINT64
+  } else {
+    minDestinationAmount = new BigNumber(0)
+  }
+  assert(Number.isInteger(requestId) && requestId <= constants.MAX_UINT32, 'requestId must be a UInt32')
+  assert(sourceAmount.isInteger() && sourceAmount.lessThanOrEqualTo(constants.MAX_UINT64), 'sourceAmount must be a UInt64')
+  assert(minDestinationAmount.isInteger() && minDestinationAmount.lessThanOrEqualTo(constants.MAX_UINT64), 'minDestinationAmount must be a UInt64')
+
+  // TODO enforce data limit
+
+  const pskPacket = encoding.serializePskPacket(params.sharedSecret, {
+    type: encoding.Type.Request,
+    requestId,
+    amount: new BigNumber(params.minDestinationAmount || 0),
+    data: params.data || Buffer.alloc(0)
+  })
+  let fulfillment
+  let executionCondition
+  if (params.unfulfillableCondition === 'zeros') {
+    debug(`using condition of all zero-bytes for request: ${requestId}`)
+    executionCondition = Buffer.alloc(32, 0)
+  } else if (params.unfulfillableCondition === 'random') {
+    executionCondition = crypto.randomBytes(32)
+    debug(`using random unfulfillable condition for request: ${requestId}`)
+  } else {
+    fulfillment = dataToFulfillment(params.sharedSecret, pskPacket)
+    executionCondition = fulfillmentToCondition(fulfillment)
+  }
+  const prepare = IlpPacket.serializeIlpPrepare({
+    destination: params.destinationAccount,
+    amount: new BigNumber(params.sourceAmount).toString(10),
+    executionCondition,
+    expiresAt: params.expiresAt || new Date(Date.now() + DEFAULT_TRANSFER_TIMEOUT),
+    data: pskPacket
+  })
+
+  debug(`sending request ${requestId} for amount: ${params.sourceAmount}`)
+  const response = await plugin.sendData(prepare)
+
+  if (!Buffer.isBuffer(response) || response.length === 0) {
+    throw new Error('Got empty response from plugin.sendData')
+  }
+
+  let packet: IlpPacket.IlpFulfill | IlpPacket.IlpRejection
+  try {
+    const parsed = IlpPacket.deserializeIlpPacket(response)
+    if (parsed.type === IlpPacket.Type.TYPE_ILP_FULFILL) {
+      packet = parsed.data as IlpPacket.IlpFulfill
+    } else if (parsed.type === IlpPacket.Type.TYPE_ILP_REJECT) {
+      packet = parsed.data as IlpPacket.IlpRejection
+    } else {
+      throw new Error('Unexpected ILP packet type: ' + parsed.type)
+    }
+  } catch (err) {
+    debug('error parsing prepare response:', err, response && response.toString('hex'))
+    throw new Error('Unable to parse response from plugin.sendData')
+  }
+
+  // Try sending a legacy packet if we got an Unexpected Payment error
+  // (This functionality will be removed in the next version)
+  if (!isFulfill(packet) && packet.code === 'F06' && packet.data.length === 0) {
+    debug('got an F06 error, trying to send a legacy packet instead')
+    if (params.unfulfillableCondition) {
+      try {
+        const quote = await quoteSourceAmount(plugin, {
+          destinationAccount: params.destinationAccount,
+          sharedSecret: params.sharedSecret,
+          sourceAmount: params.sourceAmount
+        })
+        return {
+          code: 'F99',
+          message: '',
+          triggeredBy: params.destinationAccount,
+          data: Buffer.alloc(0),
+          destinationAmount: new BigNumber(quote.destinationAmount)
+        }
+      } catch (err) {
+        debug('sending a legacy quote request did not work either', err)
+        return {
+          ...packet,
+          destinationAmount: new BigNumber(0)
+        }
+      }
+    } else {
+      try {
+        const result = await sendSingleChunk(plugin, {
+          destinationAccount: params.destinationAccount,
+          sharedSecret: params.sharedSecret,
+          sourceAmount: params.sourceAmount,
+          id: Buffer.alloc(16),
+          sequence: requestId,
+          minDestinationAmount: params.minDestinationAmount,
+          lastChunk: false
+        })
+        return {
+          destinationAmount: new BigNumber(result.destinationAmount),
+          data: Buffer.alloc(0)
+        }
+      } catch (err) {
+        debug('sending a legacy single chunk did not work either', err)
+        return {
+          ...packet,
+          destinationAmount: new BigNumber(0)
+        }
+      }
+    }
+  }
+
+  let pskResponsePacket: encoding.PskPacket
+  try {
+    pskResponsePacket = encoding.deserializePskPacket(params.sharedSecret, packet.data)
+  } catch (err) {
+    debug('error parsing PSK response packet:', packet.data.toString('hex'), err)
+  }
+  pskResponsePacket = pskResponsePacket!
+
+  // Return the fields from the response packet only if the request ID and PSK packet type are what we expect
+  let destinationAmount
+  let data
+  const expectedType = (isFulfill(packet) ? encoding.Type.Response : encoding.Type.Error)
+  if (!pskResponsePacket) {
+    destinationAmount = new BigNumber(0)
+    data = Buffer.alloc(0)
+  } else if (pskResponsePacket.type !== expectedType) {
+    console.warn(`Received PSK response packet whose type should be ${expectedType} but is ${pskResponsePacket.type}. Either the receiver is faulty or a connector is messing with us`)
+    destinationAmount = new BigNumber(0)
+    data = Buffer.alloc(0)
+  } else if (pskResponsePacket.requestId !== requestId) {
+    console.warn(`Received PSK response packet whose ID (${pskResponsePacket.requestId}) does not match our request (${requestId}). either the receiver is faulty or a connector is messing with us`)
+    destinationAmount = new BigNumber(0)
+    data = Buffer.alloc(0)
+  } else {
+    destinationAmount = pskResponsePacket.amount
+    data = pskResponsePacket.data
+  }
+
+  if (isFulfill(packet)) {
+    return {
+      destinationAmount,
+      data
+    }
+  } else {
+    return {
+      code: packet.code,
+      message: packet.message,
+      triggeredBy: packet.triggeredBy,
+      destinationAmount,
+      data
+    }
+  }
+}
+
+function isFulfill (packet: IlpPacket.IlpFulfill | IlpPacket.IlpRejection): packet is IlpPacket.IlpFulfill {
+  return packet.hasOwnProperty('fulfillment')
+}
 
 /** Parameters for the [`quoteSourceAmount`]{@link quoteSourceAmount} method. */
 export interface QuoteSourceParams {
@@ -145,13 +426,9 @@ export interface SendDestinationParams {
 }
 
 /**
- * Get an approximate quote for how much will be delivered to the Receiver if the sender sends the given source amount.
- *
- * The value returned is non-binding so the exchange rate may change after the quote is returned.
- *
- * **Note:** This method sends an unfulfillable test payment of the given amount to the Receiver to determine the path exchange rate.
+ * @deprecated Use sendRequest with an unfulfillable condition instead.
  */
-export async function quoteSourceAmount (plugin: PluginV2 | PluginV1, params: QuoteSourceParams) {
+export const quoteSourceAmount = deprecate(async function quoteSourceAmount (plugin: PluginV2 | PluginV1, params: QuoteSourceParams) {
   let {
     sourceAmount,
     sharedSecret,
@@ -166,7 +443,7 @@ export async function quoteSourceAmount (plugin: PluginV2 | PluginV1, params: Qu
   assert(destinationAccount && typeof destinationAccount === 'string', 'destinationAccount is required')
   assert((Buffer.isBuffer(id) && id.length === 16), 'id must be a 16-byte buffer')
   return quote(plugin, sharedSecret, id, destinationAccount, sourceAmount, undefined)
-}
+}, 'quoteSourceAmount is deprecated and will be removed in the next version. Use sendRequest with an unfulfillable condition instead')
 
 /**
  * Get an approximate quote for how much the sender must send in order to deliver the given destination amount to the Receiver.
@@ -177,7 +454,7 @@ export async function quoteSourceAmount (plugin: PluginV2 | PluginV1, params: Qu
  *
  * **Note:** This method sends an unfulfillable test payment of `1000` source units to the Receiver to determine the path exchange rate.
  */
-export async function quoteDestinationAmount (plugin: PluginV2 | PluginV1, params: QuoteDestinationParams) {
+export const quoteDestinationAmount = deprecate(async function quoteDestinationAmount (plugin: PluginV2 | PluginV1, params: QuoteDestinationParams) {
   let {
     destinationAmount,
     sharedSecret,
@@ -192,7 +469,7 @@ export async function quoteDestinationAmount (plugin: PluginV2 | PluginV1, param
   assert(destinationAccount && typeof destinationAccount === 'string', 'destinationAccount is required')
   assert((Buffer.isBuffer(id) && id.length === 16), 'id must be a 16-byte buffer if supplied')
   return quote(plugin, sharedSecret, id, destinationAccount, undefined, destinationAmount)
-}
+}, 'quoteDestinationAmount is deprecated and will be removed in the next version. Use sendRequest with an unfulfillable condition instead')
 
 async function quote (
   plugin: PluginV2 | PluginV1,
@@ -206,7 +483,7 @@ async function quote (
   const debug = Debug('ilp-protocol-psk2:quote')
 
   const sequence = 0
-  const data = serializeLegacyPskPacket(
+  const data = encoding.serializeLegacyPskPacket(
     sharedSecret, {
       // TODO should this be the last chunk? what if you want to use the same id for the quote and payment?
       type: constants.TYPE_PSK2_LAST_CHUNK,
@@ -240,7 +517,7 @@ async function quote (
   }
 
   try {
-    const quoteResponse = deserializeLegacyPskPacket(sharedSecret, rejection.data)
+    const quoteResponse = encoding.deserializeLegacyPskPacket(sharedSecret, rejection.data)
 
     // Validate that this is actually the response to our request
     assert(quoteResponse.type === constants.TYPE_PSK2_REJECT, 'response type must be error')
@@ -274,33 +551,9 @@ async function quote (
 }
 
 /**
- * Send a single payment chunk. This may be used for one-off payments or streaming payments.
- *
- * If this method is used for streaming payments, the user must pass in the [`SendSingleChunkAdvancedParams`]{@link SendSingleChunkAdvancedParams}.
- *
- * @example <caption>One-off payment</caption>
- * ```typescript
- *   import { sendSingleChunk, quoteDestinationAmount } from 'ilp-protocol-psk2'
- *
- *   // These values must be communicated beforehand for the sender to send a payment
- *   const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()
- *
- *   const { sourceAmount } = await quoteDestinationAmount(myLedgerPlugin, {
- *     destinationAccount,
- *     sharedSecret,
- *     destinationAmount: '1000'
- *   })
- *
- *   const result = await sendSingleChunk(myLedgerPlugin, {
- *     destinationAccount,
- *     sharedSecret,
- *     sourceAmount,
- *     minDestinationAmount: '999'
- *   })
- *   console.log(`Sent payment of ${result.sourceAmount}, receiver got ${result.destinationAmount}`)
- * ```
+ * @deprecated Use [`sendRequest`]{@link sendRequest} instead
  */
-export async function sendSingleChunk (plugin: any, params: SendSingleChunkParams | SendSingleChunkAdvancedParams): Promise<SendResult> {
+export const sendSingleChunk = deprecate(async function sendSingleChunk (plugin: any, params: SendSingleChunkParams | SendSingleChunkAdvancedParams): Promise<SendResult> {
   plugin = convert(plugin)
   const debug = Debug('ilp-protocol-psk2:sendSingleChunk')
   const {
@@ -332,7 +585,7 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
 
   debug(`sending single chunk payment ${id.toString('hex')} with source amount: ${sourceAmount} and minimum destination amount: ${minDestinationAmount}`)
 
-  const data = serializeLegacyPskPacket(sharedSecret, {
+  const data = encoding.serializeLegacyPskPacket(sharedSecret, {
     type: (lastChunk ? constants.TYPE_PSK2_LAST_CHUNK : constants.TYPE_PSK2_CHUNK),
     paymentId: id,
     sequence,
@@ -385,7 +638,7 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
 
   let amountArrived
   try {
-    const response = deserializeLegacyPskPacket(sharedSecret, fulfillmentInfo.data)
+    const response = encoding.deserializeLegacyPskPacket(sharedSecret, fulfillmentInfo.data)
 
     assert(constants.TYPE_PSK2_FULFILLMENT === response.type, `unexpected PSK packet type. expected: ${constants.TYPE_PSK2_FULFILLMENT}, actual: ${response.type}`)
     assert(id.equals(response.paymentId), `response does not correspond to request. payment id does not match. actual: ${response.paymentId.toString('hex')}, expected: ${id.toString('hex')}`)
@@ -407,7 +660,7 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
     chunksFulfilled: 1,
     chunksRejected: 0
   }
-}
+}, 'sendSingleChunk is deprecated and will be removed in the next version. Use sendRequest instead')
 
 /**
  * @deprecated PSK2 no longer includes chunked payments. They will be implemented in a separate protocol / module.
@@ -461,7 +714,7 @@ const sendChunkedPayment = deprecate(async function sendChunkedPayment (plugin: 
 
   function handleReceiverResponse (encrypted: Buffer, expectedType: number, expectedSequence: number) {
     try {
-      const response = deserializeLegacyPskPacket(sharedSecret, encrypted)
+      const response = encoding.deserializeLegacyPskPacket(sharedSecret, encrypted)
 
       assert(expectedType === response.type, `unexpected packet type. expected: ${expectedType}, actual: ${response.type}`)
       assert(id.equals(response.paymentId), `response does not correspond to request. payment id does not match. actual: ${response.paymentId.toString('hex')}, expected: ${id.toString('hex')}`)
@@ -525,7 +778,7 @@ const sendChunkedPayment = deprecate(async function sendChunkedPayment (plugin: 
       rate.times(chunkSize).round(0, BigNumber.ROUND_DOWN),
       constants.MAX_UINT64)
 
-    const data = serializeLegacyPskPacket(sharedSecret, {
+    const data = encoding.serializeLegacyPskPacket(sharedSecret, {
       type: (lastChunk ? constants.TYPE_PSK2_LAST_CHUNK : constants.TYPE_PSK2_CHUNK),
       paymentId: id,
       sequence,

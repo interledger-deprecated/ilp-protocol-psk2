@@ -34,7 +34,7 @@ mock.reRequire('../src/encoding')
 mock.reRequire('../src/sender')
 import * as sender from '../src/sender'
 import * as encoding from '../src/encoding'
-import { createReceiver } from '../src/receiver'
+import { createReceiver, RequestHandlerParams } from '../src/receiver'
 import { PaymentHandlerParams } from '../src/index'
 
 describe('Sender', function () {
@@ -47,6 +47,217 @@ describe('Sender', function () {
 
   afterEach(function () {
     this.clock.restore()
+  })
+
+  describe('sendRequest', function () {
+    it('should send a request that is accepted by the receiver', async function () {
+      const receiver = await createReceiver({
+        plugin: this.plugin,
+        requestHandler: (params: RequestHandlerParams) => { params.accept(Buffer.from('thanks!')) }
+      })
+      const { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
+
+      const result = await sender.sendRequest(this.plugin, {
+        destinationAccount,
+        sharedSecret,
+        sourceAmount: '10',
+        minDestinationAmount: '1'
+      })
+      assert.equal(result.data.toString('utf8'), 'thanks!')
+      assert.equal((result as sender.PskResponse).destinationAmount.toString(10), '5')
+    })
+
+    it('should return the data the receiver passes back when rejecting the packet', async function () {
+      const receiver = await createReceiver({
+        plugin: this.plugin,
+        requestHandler: (params: RequestHandlerParams) => { params.reject(Buffer.from('nope')) }
+      })
+      const { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
+
+      const result = await sender.sendRequest(this.plugin, {
+        destinationAccount,
+        sharedSecret,
+        sourceAmount: '10',
+        minDestinationAmount: '1'
+      })
+      assert.equal(result.data.toString('utf8'), 'nope')
+      assert.equal(result.destinationAmount.toString(10), '5')
+    })
+
+    it('should be able to use a random unfulfillable condition (for example, for test payments)', async function () {
+      const stub = sinon.stub(this.plugin, 'sendData').resolves(IlpPacket.serializeIlpReject({
+        code: 'F99',
+        message: '',
+        triggeredBy: 'test.receiver',
+        data: encoding.serializePskPacket(SHARED_SECRET, {
+          type: 6,
+          amount: new BigNumber(5),
+          requestId: 1234,
+          data: Buffer.from('hello')
+        })
+      }))
+
+      const result = await sender.sendRequest(this.plugin, {
+        destinationAccount: 'test.receiver',
+        sharedSecret: SHARED_SECRET,
+        sourceAmount: '10',
+        requestId: 1234,
+        unfulfillableCondition: 'random'
+      })
+      assert(stub.calledOnce)
+      assert.deepEqual(IlpPacket.deserializeIlpPrepare(stub.args[0][0]).executionCondition, QUOTE_CONDITION)
+      assert.equal(result.destinationAmount.toString(10), '5')
+      assert.equal(result.data.toString('utf8'), 'hello')
+    })
+
+    it('should be able to use an all-zero unfulfillable condition (for example, for test payments)', async function () {
+      const stub = sinon.stub(this.plugin, 'sendData').resolves(IlpPacket.serializeIlpReject({
+        code: 'F99',
+        message: '',
+        triggeredBy: 'test.receiver',
+        data: encoding.serializePskPacket(SHARED_SECRET, {
+          type: 6,
+          amount: new BigNumber(5),
+          requestId: 1234,
+          data: Buffer.from('hello')
+        })
+      }))
+
+      const result = await sender.sendRequest(this.plugin, {
+        destinationAccount: 'test.receiver',
+        sharedSecret: SHARED_SECRET,
+        sourceAmount: '10',
+        requestId: 1234,
+        unfulfillableCondition: 'zeros'
+      })
+      assert(stub.calledOnce)
+      assert.deepEqual(IlpPacket.deserializeIlpPrepare(stub.args[0][0]).executionCondition, Buffer.alloc(32))
+      assert.equal(result.destinationAmount.toString(10), '5')
+      assert.equal(result.data.toString('utf8'), 'hello')
+    })
+
+    it('should throw an error if plugin.sendData resolves to something other than an ILP Fulfill or Reject', async function () {
+      const stub = sinon.stub(this.plugin, 'sendData').resolves(IlpPacket.serializeIlpRejection({
+        code: 'F99',
+        message: '',
+        triggeredBy: '',
+        data: Buffer.alloc(0)
+      }))
+
+      try {
+        await sender.sendRequest(this.plugin, {
+          destinationAccount: 'test.receiver',
+          sharedSecret: SHARED_SECRET,
+          sourceAmount: '10'
+        })
+      } catch (err) {
+        assert.equal(err.message, 'Unable to parse response from plugin.sendData')
+        return
+      }
+      assert(false, 'should not get here')
+    })
+
+    it('should resolve but not return the data or destination amount if the data has been tampered with', async function () {
+      const data = encoding.serializePskPacket(SHARED_SECRET, {
+        type: 6,
+        amount: new BigNumber(5),
+        requestId: 1234,
+        data: Buffer.from('hello')
+      })
+      data[10] = ~data[10]
+      const stub = sinon.stub(this.plugin, 'sendData').resolves(IlpPacket.serializeIlpReject({
+        code: 'F99',
+        message: '',
+        triggeredBy: 'test.receiver',
+        data
+      }))
+
+      const result = await sender.sendRequest(this.plugin, {
+        destinationAccount: 'test.receiver',
+        sharedSecret: SHARED_SECRET,
+        sourceAmount: '10',
+        requestId: 1234
+      }) as sender.PskError
+      assert(stub.calledOnce)
+      assert.equal(result.code, 'F99')
+      assert.equal(result.destinationAmount.toString(10), '0')
+      assert.equal(result.data.toString('utf8'), '')
+    })
+
+    it('should resolve but not return the data or destination amount if the requestId in the response does not match the outgoing request', async function () {
+      const stub = sinon.stub(this.plugin, 'sendData').resolves(IlpPacket.serializeIlpReject({
+        code: 'F99',
+        message: '',
+        triggeredBy: 'test.receiver',
+        data: encoding.serializePskPacket(SHARED_SECRET, {
+          type: 6,
+          amount: new BigNumber(5),
+          requestId: 123,
+          data: Buffer.from('hello')
+        })
+      }))
+
+      const result = await sender.sendRequest(this.plugin, {
+        destinationAccount: 'test.receiver',
+        sharedSecret: SHARED_SECRET,
+        sourceAmount: '10',
+        requestId: 1234
+      }) as sender.PskError
+      assert(stub.calledOnce)
+      assert.equal(result.code, 'F99')
+      assert.equal(result.destinationAmount.toString(10), '0')
+      assert.equal(result.data.toString('utf8'), '')
+    })
+
+    it('should resolve but not return the data or destination amount if the PSK request type does not match the ILP packet type it is attached to', async function () {
+      const stub = sinon.stub(this.plugin, 'sendData').resolves(IlpPacket.serializeIlpReject({
+        code: 'F99',
+        message: '',
+        triggeredBy: 'test.receiver',
+        data: encoding.serializePskPacket(SHARED_SECRET, {
+          type: 5,
+          amount: new BigNumber(5),
+          requestId: 1234,
+          data: Buffer.from('hello')
+        })
+      }))
+
+      const result = await sender.sendRequest(this.plugin, {
+        destinationAccount: 'test.receiver',
+        sharedSecret: SHARED_SECRET,
+        sourceAmount: '10',
+        requestId: 1234
+      }) as sender.PskError
+      assert(stub.calledOnce)
+      assert.equal(result.code, 'F99')
+      assert.equal(result.destinationAmount.toString(10), '0')
+      assert.equal(result.data.toString('utf8'), '')
+    })
+
+    it('should try sending legacy packets for quotes if new ones do not work', async function () {
+      const receiver = await createReceiver({
+        plugin: this.plugin,
+        paymentHandler: (params: PaymentHandlerParams) => { params.accept() }
+      })
+      const result = await sender.sendRequest(this.plugin, {
+        ...receiver.generateAddressAndSecret(),
+        sourceAmount: '10',
+        unfulfillableCondition: 'random'
+      }) as sender.PskError
+      assert.equal(result.destinationAmount.toString(10), '5')
+    })
+
+    it('should try sending legacy packets for payments if new ones do not work', async function () {
+      const receiver = await createReceiver({
+        plugin: this.plugin,
+        paymentHandler: (params: PaymentHandlerParams) => { params.accept() }
+      })
+      const result = await sender.sendRequest(this.plugin, {
+        ...receiver.generateAddressAndSecret(),
+        sourceAmount: '10'
+      }) as sender.PskResponse
+      assert.equal(result.destinationAmount.toString(10), '5')
+    })
   })
 
   describe('quoteSourceAmount', function () {

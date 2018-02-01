@@ -18,6 +18,8 @@ describe('Exports', function () {
   it('exports the packet types and encoding functions', function () {
     assert.typeOf(PSK2.deserializePskPacket, 'function')
     assert.typeOf(PSK2.serializePskPacket, 'function')
+    assert.typeOf(PSK2.deserializeLegacyPskPacket, 'function')
+    assert.typeOf(PSK2.serializeLegacyPskPacket, 'function')
     assert.typeOf(PSK2.TYPE_PSK2_CHUNK, 'number')
   })
 })

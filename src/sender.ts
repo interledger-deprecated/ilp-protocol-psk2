@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js'
 import * as IlpPacket from 'ilp-packet'
 import { default as convert, PluginV1, PluginV2 } from 'ilp-compat-plugin'
 import * as constants from './constants'
-import { serializePskPacket, deserializePskPacket, PskPacket } from './encoding'
+import { serializeLegacyPskPacket, deserializeLegacyPskPacket, LegacyPskPacket } from './encoding'
 import { dataToFulfillment, fulfillmentToCondition } from './condition'
 
 const DEFAULT_TRANSFER_TIMEOUT = 30000
@@ -208,7 +208,7 @@ async function quote (
   const debug = Debug('ilp-protocol-psk2:quote')
 
   const sequence = 0
-  const data = serializePskPacket(
+  const data = serializeLegacyPskPacket(
     sharedSecret, {
       // TODO should this be the last chunk? what if you want to use the same id for the quote and payment?
       type: constants.TYPE_PSK2_LAST_CHUNK,
@@ -242,10 +242,10 @@ async function quote (
   }
 
   try {
-    const quoteResponse = deserializePskPacket(sharedSecret, rejection.data)
+    const quoteResponse = deserializeLegacyPskPacket(sharedSecret, rejection.data)
 
     // Validate that this is actually the response to our request
-    assert(quoteResponse.type === constants.TYPE_PSK2_ERROR, 'response type must be error')
+    assert(quoteResponse.type === constants.TYPE_PSK2_REJECT, 'response type must be error')
     assert(id.equals(quoteResponse.paymentId), 'response Payment ID does not match outgoing quote')
     assert(sequence === quoteResponse.sequence, 'sequence does not match outgoing quote')
 
@@ -368,7 +368,7 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
 
   debug(`sending single chunk payment ${id.toString('hex')} with source amount: ${sourceAmount} and minimum destination amount: ${minDestinationAmount}`)
 
-  const data = serializePskPacket(sharedSecret, {
+  const data = serializeLegacyPskPacket(sharedSecret, {
     type: (lastChunk ? constants.TYPE_PSK2_LAST_CHUNK : constants.TYPE_PSK2_CHUNK),
     paymentId: id,
     sequence,
@@ -421,7 +421,7 @@ export async function sendSingleChunk (plugin: any, params: SendSingleChunkParam
 
   let amountArrived
   try {
-    const response = deserializePskPacket(sharedSecret, fulfillmentInfo.data)
+    const response = deserializeLegacyPskPacket(sharedSecret, fulfillmentInfo.data)
 
     assert(constants.TYPE_PSK2_FULFILLMENT === response.type, `unexpected PSK packet type. expected: ${constants.TYPE_PSK2_FULFILLMENT}, actual: ${response.type}`)
     assert(id.equals(response.paymentId), `response does not correspond to request. payment id does not match. actual: ${response.paymentId.toString('hex')}, expected: ${id.toString('hex')}`)
@@ -510,7 +510,7 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
 
   function handleReceiverResponse (encrypted: Buffer, expectedType: number, expectedSequence: number) {
     try {
-      const response = deserializePskPacket(sharedSecret, encrypted)
+      const response = deserializeLegacyPskPacket(sharedSecret, encrypted)
 
       assert(expectedType === response.type, `unexpected packet type. expected: ${expectedType}, actual: ${response.type}`)
       assert(id.equals(response.paymentId), `response does not correspond to request. payment id does not match. actual: ${response.paymentId.toString('hex')}, expected: ${id.toString('hex')}`)
@@ -574,7 +574,7 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
       rate.times(chunkSize).round(0, BigNumber.ROUND_DOWN),
       constants.MAX_UINT64)
 
-    const data = serializePskPacket(sharedSecret, {
+    const data = serializeLegacyPskPacket(sharedSecret, {
       type: (lastChunk ? constants.TYPE_PSK2_LAST_CHUNK : constants.TYPE_PSK2_CHUNK),
       paymentId: id,
       sequence,
@@ -630,7 +630,7 @@ async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): P
         // Handle if the receiver rejects the transfer with a PSK packet
         handleReceiverResponse(
           rejection.data,
-          constants.TYPE_PSK2_ERROR,
+          constants.TYPE_PSK2_REJECT,
           sequence)
       } else if (rejection.code[0] === 'T' || rejection.code[0] === 'R') {
         // Handle temporary and relative errors

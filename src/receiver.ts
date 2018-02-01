@@ -8,15 +8,36 @@ import BigNumber from 'bignumber.js'
 import { default as convertToV2Plugin, PluginV1, PluginV2 } from 'ilp-compat-plugin'
 import IlpPacket = require('ilp-packet')
 import * as constants from './constants'
-import { serializePskPacket, deserializePskPacket, PskPacket } from './encoding'
+import * as encoding from './encoding'
 import { dataToFulfillment, fulfillmentToCondition } from './condition'
 import * as ILDCP from 'ilp-protocol-ildcp'
+import { deprecate } from 'util'
 
 const RECEIVER_ID_STRING = 'ilp_psk2_receiver_id'
 const PSK_GENERATION_STRING = 'ilp_psk2_generation'
 const RECEIVER_ID_LENGTH = 8
 const TOKEN_LENGTH = 18
 const SHARED_SECRET_LENGTH = 32
+
+/**
+ * Review callback that will be called every time the Receiver receives an incoming packet.
+ *
+ * The RequestHandler can call [`accept`]{@link RequestHandlerParams.accept} to fulfill the packet or [`reject`]{@link RequestHandlerParams.reject} to reject it.
+ */
+export interface RequestHandler {
+  (params: RequestHandlerParams): any
+}
+
+export interface RequestHandlerParams {
+  /** Amount that arrived */
+  amount: BigNumber,
+  /** Data sent by the sender */
+  data: Buffer,
+  /** Fulfill the packet, and optionally send some data back to the sender */
+  accept: (responseData?: Buffer) => void,
+  /** Reject the packet, and optionally send some data back to the sender */
+  reject: (responseData?: Buffer) => void
+}
 
 /**
  * Review callback that will be called every time the Receiver receives an incoming payment or payment chunk.
@@ -75,8 +96,13 @@ export interface PaymentReceived {
  * Params for instantiating a Receiver using the [`createReceiver`]{@link createReceiver} function.
  */
 export interface ReceiverOpts {
+  /** Ledger Plugin */
   plugin: PluginV2 | PluginV1,
-  paymentHandler: PaymentHandler,
+  /** @deprecated */
+  paymentHandler?: PaymentHandler,
+  /** Callback for handling incoming packets */
+  requestHandler?: RequestHandler,
+  /** Cryptographic seed that will be used to generate shared secrets for multiple senders */
   secret?: Buffer
 }
 
@@ -90,22 +116,24 @@ export interface ReceiverOpts {
 export class Receiver {
   protected plugin: PluginV2
   protected secret: Buffer
-  protected receiverId: string
+  protected requestHandler: RequestHandler
   protected paymentHandler: PaymentHandler
   protected address: string
   protected payments: Object
   protected connected: boolean
+  protected usingRequestHandlerApi: boolean
 
   constructor (plugin: PluginV2 | PluginV1, secret: Buffer) {
+    // TODO stop accepting PluginV1
     this.plugin = convertToV2Plugin(plugin)
     assert(secret.length >= 32, 'secret must be at least 32 bytes')
     this.secret = secret
-    // TODO is the receiver ID necessary if ILDCP will return different addresses for each listener?
-    this.receiverId = getReceiverId(this.secret)
     this.paymentHandler = this.defaultPaymentHandler
     this.address = ''
     this.payments = {}
     this.connected = false
+    this.requestHandler = this.defaultRequestHandler
+    this.usingRequestHandlerApi = false
   }
 
   /**
@@ -141,19 +169,41 @@ export class Receiver {
   }
 
   /**
-   * Register a callback that will be called every time a new payment is received.
+   * Register a callback that will be called each time a packet is received.
    *
-   * The user must call `accept` or `acceptSingleChunk` to make the Receiver fulfill the payment.
+   * The user must call `accept` to make the Receiver fulfill the packet.
    */
-  registerPaymentHandler (handler: PaymentHandler): void {
+  registerRequestHandler (handler: RequestHandler): void {
+    if (this.paymentHandler !== this.defaultPaymentHandler) {
+      throw new Error('PaymentHandler and RequestHandler APIs cannot be used at the same time')
+    }
+    debug('registered request handler')
+    this.usingRequestHandlerApi = true
+    this.requestHandler = handler
+  }
+
+  /**
+   * Remove the handler callback.
+   */
+  deregisterRequestHandler (): void {
+    this.requestHandler = this.defaultRequestHandler
+  }
+
+  /**
+   * @deprecated. Switch to [`registerRequestHandler`]{@link Receiver.registerRequestHandler} instead
+   */
+  registerPaymentHandler = deprecate((handler: PaymentHandler): void => {
+    if (this.usingRequestHandlerApi) {
+      throw new Error('PaymentHandler and RequestHandler APIs cannot be used at the same time')
+    }
     debug('registered payment handler')
     /* tslint:disable-next-line:strict-type-predicates */
     assert(typeof handler === 'function', 'payment handler must be a function')
     this.paymentHandler = handler
-  }
+  }, 'Receiver.registerPaymentHandler is deprecated and will be removed in the next version. Switch to Receiver.registerRequestHandler instead')
 
   /**
-   * Remove the payment handler callback.
+   * @deprecated. Use RequestHandlers instead
    */
   deregisterPaymentHandler (): void {
     this.paymentHandler = this.defaultPaymentHandler
@@ -171,13 +221,18 @@ export class Receiver {
     const token = crypto.randomBytes(TOKEN_LENGTH)
     return {
       sharedSecret: generateSharedSecret(this.secret, token),
-      destinationAccount: `${this.address}.${this.receiverId}.${base64url(token)}`
+      destinationAccount: `${this.address}.${base64url(token)}`
     }
   }
 
   protected async defaultPaymentHandler (params: PaymentHandlerParams): Promise<void> {
     debug(`Receiver has no handler registered, rejecting payment ${params.id.toString('hex')}`)
     return params.reject('Receiver has no payment handler registered')
+  }
+
+  protected async defaultRequestHandler (params: RequestHandlerParams): Promise<void> {
+    debug(`Receiver has no handler registered, rejecting request of amount: ${params.amount} with data: ${params.data.toString('hex')}`)
+    return params.reject(Buffer.alloc(0))
   }
 
   protected reject (code: string, message?: string, data?: Buffer) {
@@ -189,6 +244,44 @@ export class Receiver {
     })
   }
 
+  protected async callRequestHandler (requestId: number, amount: string, data: Buffer): Promise<{ fulfill: boolean, responseData: Buffer }> {
+    let fulfill = false
+    let responseData = Buffer.alloc(0)
+
+    // This promise resolves when the user has either accepted or rejected the payment
+    await new Promise(async (resolve, reject) => {
+      // Reject the payment if:
+      // a) the user explicity calls reject
+      // b) if they don't call accept
+      // c) if there is an error thrown in the request handler
+      try {
+        await Promise.resolve(this.requestHandler({
+          amount: new BigNumber(amount),
+          data,
+          accept: (userResponse = Buffer.alloc(0)) => {
+            fulfill = true
+            responseData = userResponse
+            resolve()
+          },
+          reject: (userResponse = Buffer.alloc(0)) => {
+            responseData = userResponse
+            debug(`user rejected packet with requestId: ${requestId}`)
+            resolve()
+          }
+        }))
+      } catch (err) {
+        debug('error in requestHandler, going to reject the packet:', err)
+      }
+      debug('requestHandler returned without user calling accept or reject, rejecting the packet now')
+      resolve()
+    })
+
+    return {
+      fulfill,
+      responseData
+    }
+  }
+
   // This is an arrow function so we don't need to use bind when setting it on the plugin
   protected handleData = async (data: Buffer): Promise<Buffer> => {
     let prepare: IlpPacket.IlpPrepare
@@ -197,205 +290,323 @@ export class Receiver {
     try {
       prepare = IlpPacket.deserializeIlpPrepare(data)
       const parsedAccount = parseAccount(prepare.destination)
-
-      assert(parsedAccount.receiverId === this.receiverId, 'payment is for a different receiver')
-
       sharedSecret = generateSharedSecret(this.secret, parsedAccount.token)
     } catch (err) {
       debug('error parsing incoming prepare:', err)
-      return this.reject('F06', 'Payment is not for this receiver')
+      return this.reject('F06', 'Packet is not an IlpPrepare')
     }
 
-    let request: PskPacket
+    let packet
+    let isLegacy
     try {
-      request = deserializePskPacket(sharedSecret, prepare.data)
+      packet = encoding.deserializePskPacket(sharedSecret, prepare.data)
+      isLegacy = false
     } catch (err) {
-      debug('error decrypting data:', err)
-      return this.reject('F06', 'Unable to parse data')
-    }
-
-    if (request.type !== constants.TYPE_PSK2_CHUNK && request.type !== constants.TYPE_PSK2_LAST_CHUNK) {
-      debug(`got unexpected request type: ${request.type}`)
-      // TODO should this be a different error code?
-      // (this might be a sign that they're using a different version of the protocol)
-      // TODO should this type of response be encrypted?
-      return this.reject('F06', 'Unexpected request type')
-    }
-
-    const paymentId = request.paymentId.toString('hex')
-    let record = this.payments[paymentId]
-    if (!record) {
-      record = {
-        // TODO buffer user data and keep track of sequence numbers
-        received: new BigNumber(0),
-        expected: new BigNumber(0),
-        finished: false,
-        finishedPromise: null,
-        acceptedByReceiver: null,
-        rejectionMessage: 'rejected by receiver',
-        chunksFulfilled: 0,
-        chunksRejected: 0 // doesn't include chunks we cannot parse
+      try {
+        packet = encoding.deserializeLegacyPskPacket(sharedSecret, prepare.data)
+        isLegacy = true
+      } catch (err) {
+        debug('unable to parse PSK packet, either because it is an unrecognized type or because the data has been tampered with:', JSON.stringify(prepare), err && err.message)
+        // TODO should this be a different error?
+        return this.reject('F06', 'Unable to parse data')
       }
-      this.payments[paymentId] = record
     }
-    record.expected = request.paymentAmount
+    // Support the old PaymentHandler API for now
+    if (this.usingRequestHandlerApi && !isLegacy) {
+      if (!encoding.isPskRequest(packet)) {
+        // TODO should this be a different error?
+        debug('packet is not a PSK Request (should be type 4):', packet)
+        return this.reject('F06', 'Unexpected packet type')
+      }
+      // Check if the amount we received is enough
+      // Note: this check must come before the fulfillment one in order for unfulfillable test payments to be used as quotes
+      if (packet.amount.greaterThan(prepare.amount)) {
+        debug(`incoming transfer amount too low. actual: ${prepare.amount}, expected: ${packet.amount}`)
+        return this.reject('F99', '', encoding.serializePskPacket(sharedSecret, {
+          type: encoding.Type.Error,
+          requestId: packet.requestId,
+          amount: new BigNumber(prepare.amount),
+          data: Buffer.alloc(0)
+        }))
+      }
 
-    const rejectTransfer = (message: string) => {
-      debug(`rejecting transfer ${request.sequence} of payment ${paymentId}: ${message}`)
-      record.chunksRejected += 1
-      const data = serializePskPacket(sharedSecret, {
-        type: constants.TYPE_PSK2_ERROR,
+      // Check if we can regenerate the correct fulfillment
+      let fulfillment
+      try {
+        fulfillment = dataToFulfillment(sharedSecret, prepare.data)
+        const generatedCondition = fulfillmentToCondition(fulfillment)
+        assert(generatedCondition.equals(prepare.executionCondition), `condition generated does not match. expected: ${prepare.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
+      } catch (err) {
+        debug('error regenerating fulfillment:', err)
+        return this.reject('F05', 'Condition generated does not match prepare')
+      }
+
+      const { fulfill, responseData } = await this.callRequestHandler(packet.requestId, prepare.amount, packet.data)
+      if (fulfill) {
+        return IlpPacket.serializeIlpFulfill({
+          fulfillment,
+          data: encoding.serializePskPacket(sharedSecret, {
+            type: encoding.Type.Response,
+            requestId: packet.requestId,
+            amount: new BigNumber(prepare.amount),
+            data: responseData
+          })
+        })
+      } else {
+        return this.reject('F99', '', encoding.serializePskPacket(sharedSecret, {
+          type: encoding.Type.Error,
+          requestId: packet.requestId,
+          amount: new BigNumber(prepare.amount),
+          data: responseData
+        }))
+      }
+    } else if (this.usingRequestHandlerApi && isLegacy) {
+      // Legacy packets (will be removed soon)
+      if (!encoding.isLegacyPacket(packet)) {
+        debug('got packet with unrecognized PSK type: ', packet)
+        // TODO should this be a different error?
+        return this.reject('F06', 'Unsupported type')
+      }
+
+      // Transfer amount too low
+      if (packet.chunkAmount.gt(prepare.amount)) {
+        debug(`incoming transfer amount too low. actual: ${prepare.amount}, expected: ${packet.chunkAmount.toString(10)}`)
+        return this.reject('F99', '', encoding.serializeLegacyPskPacket(sharedSecret, {
+          type: constants.TYPE_PSK2_REJECT,
+          paymentId: packet.paymentId,
+          sequence: packet.sequence,
+          chunkAmount: new BigNumber(prepare.amount),
+          paymentAmount: new BigNumber(0)
+        }))
+      }
+
+      // Check if we can regenerate the correct fulfillment
+      let fulfillment
+      try {
+        fulfillment = dataToFulfillment(sharedSecret, prepare.data)
+        const generatedCondition = fulfillmentToCondition(fulfillment)
+        assert(generatedCondition.equals(prepare.executionCondition), `condition generated does not match. expected: ${prepare.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
+      } catch (err) {
+        debug('error regenerating fulfillment:', err)
+        return this.reject('F05', 'Condition generated does not match prepare')
+      }
+
+      const { fulfill, responseData } = await this.callRequestHandler(packet.sequence, prepare.amount, Buffer.alloc(0))
+      if (fulfill) {
+        return IlpPacket.serializeIlpFulfill({
+          fulfillment,
+          data: encoding.serializeLegacyPskPacket(sharedSecret, {
+            type: constants.TYPE_PSK2_FULFILLMENT,
+            paymentId: packet.paymentId,
+            sequence: packet.sequence,
+            paymentAmount: new BigNumber(0),
+            chunkAmount: new BigNumber(prepare.amount),
+            applicationData: Buffer.alloc(0)
+          })
+        })
+      } else {
+        return this.reject('F99', '', encoding.serializeLegacyPskPacket(sharedSecret, {
+          type: constants.TYPE_PSK2_REJECT,
+          paymentId: packet.paymentId,
+          sequence: packet.sequence,
+          paymentAmount: new BigNumber(0),
+          chunkAmount: new BigNumber(prepare.amount),
+          applicationData: Buffer.alloc(0)
+        }))
+      }
+    } else {
+      // Legacy PaymentHandler API (will be removed soon)
+      let request: encoding.LegacyPskPacket
+      try {
+        request = encoding.deserializeLegacyPskPacket(sharedSecret, prepare.data)
+      } catch (err) {
+        debug('error decrypting data:', err)
+        return this.reject('F06', 'Unable to parse data')
+      }
+
+      if ([constants.TYPE_PSK2_CHUNK, constants.TYPE_PSK2_LAST_CHUNK].indexOf(request.type) === -1) {
+        debug(`got unexpected request type: ${request.type}`)
+        // TODO should this be a different error code?
+        // (this might be a sign that they're using a different version of the protocol)
+        // TODO should this type of response be encrypted?
+        return this.reject('F06', 'Unexpected request type')
+      }
+
+      const paymentId = request.paymentId.toString('hex')
+      let record = this.payments[paymentId]
+      if (!record) {
+        record = {
+          // TODO buffer user data and keep track of sequence numbers
+          received: new BigNumber(0),
+          expected: new BigNumber(0),
+          finished: false,
+          finishedPromise: null,
+          acceptedByReceiver: null,
+          rejectionMessage: 'rejected by receiver',
+          chunksFulfilled: 0,
+          chunksRejected: 0 // doesn't include chunks we cannot parse
+        }
+        this.payments[paymentId] = record
+      }
+      record.expected = request.paymentAmount
+
+      const rejectTransfer = (message: string) => {
+        debug(`rejecting transfer ${request.sequence} of payment ${paymentId}: ${message}`)
+        record.chunksRejected += 1
+        const data = encoding.serializeLegacyPskPacket(sharedSecret, {
+          type: constants.TYPE_PSK2_REJECT,
+          paymentId: request.paymentId,
+          sequence: request.sequence,
+          paymentAmount: record.received,
+          chunkAmount: new BigNumber(prepare.amount)
+        })
+        return this.reject('F99', '', data)
+      }
+
+      // Transfer amount too low
+      if (request.chunkAmount.gt(prepare.amount)) {
+        return rejectTransfer(`incoming transfer amount too low. actual: ${prepare.amount}, expected: ${request.chunkAmount.toString(10)}`)
+      }
+
+      // Payment is already finished
+      if (record.finished) {
+        // TODO should this return an F99 or something else?
+        return rejectTransfer(`payment is already finished`)
+      }
+
+      // TODO should we reject an incoming chunk if it would put us too far over the expected amount?
+
+      // Check if we can regenerate the correct fulfillment
+      let fulfillment
+      try {
+        fulfillment = dataToFulfillment(sharedSecret, prepare.data)
+        const generatedCondition = fulfillmentToCondition(fulfillment)
+        assert(generatedCondition.equals(prepare.executionCondition), `condition generated does not match. expected: ${prepare.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
+      } catch (err) {
+        debug('error regenerating fulfillment:', err)
+        record.chunksRejected += 1
+        return this.reject('F05', 'condition generated does not match prepare')
+      }
+
+      // Check if the receiver wants to accept the payment
+      let chunkAccepted = !!record.acceptedByReceiver
+      let userCalledAcceptOrReject = false
+      if (record.acceptedByReceiver === null) {
+        // This promise resolves when the user has either accepted or rejected the payment
+        await new Promise(async (resolve, reject) => {
+          // Reject the payment if:
+          // a) the user explicity calls reject
+          // b) if they don't call accept
+          // c) if there is an error thrown in the payment handler
+          try {
+            await Promise.resolve(this.paymentHandler({
+              // TODO include first chunk data
+              id: request.paymentId,
+              expectedAmount: record.expected.toString(10),
+              accept: async (): Promise<PaymentReceived> => {
+                userCalledAcceptOrReject = true
+                // Resolve the above promise so that we actually fulfill the incoming chunk
+                record.acceptedByReceiver = true
+                chunkAccepted = true
+                resolve()
+
+                // The promise returned to the receiver will be fulfilled
+                // when the whole payment is finished
+                const payment = await new Promise((resolve, reject) => {
+                  record.finishedPromise = { resolve, reject }
+                  // TODO should the payment timeout after some time?
+                }) as PaymentReceived
+
+                return payment
+              },
+              reject: (message: string) => {
+                userCalledAcceptOrReject = true
+                debug('receiver rejected payment with message:', message)
+                record.acceptedByReceiver = false
+                record.rejectionMessage = message
+                record.finished = false
+                // TODO check that the message isn't too long
+              },
+              // TODO throw error if you've waited too long and it's expired
+              acceptSingleChunk: (): void => {
+                userCalledAcceptOrReject = true
+                chunkAccepted = true
+                record.acceptedByReceiver = null
+                resolve()
+              },
+              rejectSingleChunk: (message: string) => {
+                userCalledAcceptOrReject = true
+                chunkAccepted = false
+                record.acceptedByReceiver = null
+                record.rejectionMessage = message
+                resolve()
+                // TODO check that the message isn't too long
+              },
+              prepare
+            }))
+
+            // If the user didn't call the accept function, reject it
+            if (!userCalledAcceptOrReject) {
+              record.acceptedByReceiver = false
+              record.rejectionMessage = 'receiver did not accept the payment'
+              record.finished = true
+            }
+          } catch (err) {
+            debug('error thrown in payment handler:', err)
+            record.acceptedByReceiver = false
+            record.rejectionMessage = err && err.message
+          }
+          resolve()
+        })
+      }
+
+      // Reject the chunk if the receiver rejected the whole payment
+      if (record.acceptedByReceiver === false) {
+        debug(`rejecting chunk because payment ${paymentId} was rejected by receiver with message: ${record.rejectionMessage}`)
+        record.chunksRejected += 1
+        return this.reject('F99', record.rejectionMessage)
+      }
+
+      // Reject the chunk of the receiver rejected the specific chunk
+      if (!chunkAccepted) {
+        debug(`rejecting chunk ${request.sequence} of payment ${paymentId} because it was rejected by the receiver with the message: ${record.rejectionMessage}`)
+        record.chunksRejected += 1
+        return this.reject('F99', record.rejectionMessage)
+      }
+
+      // Update stats based on that chunk
+      record.chunksFulfilled += 1
+      record.received = record.received.plus(prepare.amount)
+      if (record.received.gte(record.expected) || request.type === constants.TYPE_PSK2_LAST_CHUNK) {
+        record.finished = true
+        record.finishedPromise && record.finishedPromise.resolve({
+          id: request.paymentId,
+          receivedAmount: record.received.toString(10),
+          expectedAmount: record.expected.toString(10),
+          chunksFulfilled: record.chunksFulfilled,
+          chunksRejected: record.chunksRejected
+          // TODO add data
+        })
+      }
+
+      debug(`got ${record.finished ? 'last ' : ''}chunk of amount ${prepare.amount} for payment: ${paymentId}. total received: ${record.received.toString(10)}`)
+
+      // Let the sender know how much has arrived
+      const response = encoding.serializeLegacyPskPacket(sharedSecret, {
+        type: constants.TYPE_PSK2_FULFILLMENT,
         paymentId: request.paymentId,
         sequence: request.sequence,
         paymentAmount: record.received,
         chunkAmount: new BigNumber(prepare.amount)
       })
-      return this.reject('F99', '', data)
-    }
 
-    // Transfer amount too low
-    if (request.chunkAmount.gt(prepare.amount)) {
-      return rejectTransfer(`incoming transfer amount too low. actual: ${prepare.amount}, expected: ${request.chunkAmount.toString(10)}`)
-    }
+      debug(`fulfilling transfer ${request.sequence} for payment ${paymentId} with fulfillment: ${fulfillment.toString('base64')}`)
 
-    // Payment is already finished
-    if (record.finished) {
-      // TODO should this return an F99 or something else?
-      return rejectTransfer(`payment is already finished`)
-    }
-
-    // TODO should we reject an incoming chunk if it would put us too far over the expected amount?
-
-    // Check if we can regenerate the correct fulfillment
-    let fulfillment
-    try {
-      fulfillment = dataToFulfillment(sharedSecret, prepare.data)
-      const generatedCondition = fulfillmentToCondition(fulfillment)
-      assert(generatedCondition.equals(prepare.executionCondition), `condition generated does not match. expected: ${prepare.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
-    } catch (err) {
-      debug('error regenerating fulfillment:', err)
-      record.chunksRejected += 1
-      return this.reject('F05', 'condition generated does not match prepare')
-    }
-
-    // Check if the receiver wants to accept the payment
-    let chunkAccepted = !!record.acceptedByReceiver
-    let userCalledAcceptOrReject = false
-    if (record.acceptedByReceiver === null) {
-      // This promise resolves when the user has either accepted or rejected the payment
-      await new Promise(async (resolve, reject) => {
-        // Reject the payment if:
-        // a) the user explicity calls reject
-        // b) if they don't call accept
-        // c) if there is an error thrown in the payment handler
-        try {
-          await Promise.resolve(this.paymentHandler({
-            // TODO include first chunk data
-            id: request.paymentId,
-            expectedAmount: record.expected.toString(10),
-            accept: async (): Promise<PaymentReceived> => {
-              userCalledAcceptOrReject = true
-              // Resolve the above promise so that we actually fulfill the incoming chunk
-              record.acceptedByReceiver = true
-              chunkAccepted = true
-              resolve()
-
-              // The promise returned to the receiver will be fulfilled
-              // when the whole payment is finished
-              const payment = await new Promise((resolve, reject) => {
-                record.finishedPromise = { resolve, reject }
-                // TODO should the payment timeout after some time?
-              }) as PaymentReceived
-
-              return payment
-            },
-            reject: (message: string) => {
-              userCalledAcceptOrReject = true
-              debug('receiver rejected payment with message:', message)
-              record.acceptedByReceiver = false
-              record.rejectionMessage = message
-              record.finished = false
-              // TODO check that the message isn't too long
-            },
-            // TODO throw error if you've waited too long and it's expired
-            acceptSingleChunk: (): void => {
-              userCalledAcceptOrReject = true
-              chunkAccepted = true
-              record.acceptedByReceiver = null
-              resolve()
-            },
-            rejectSingleChunk: (message: string) => {
-              userCalledAcceptOrReject = true
-              chunkAccepted = false
-              record.acceptedByReceiver = null
-              record.rejectionMessage = message
-              resolve()
-              // TODO check that the message isn't too long
-            },
-            prepare
-          }))
-
-          // If the user didn't call the accept function, reject it
-          if (!userCalledAcceptOrReject) {
-            record.acceptedByReceiver = false
-            record.rejectionMessage = 'receiver did not accept the payment'
-            record.finished = true
-          }
-        } catch (err) {
-          debug('error thrown in payment handler:', err)
-          record.acceptedByReceiver = false
-          record.rejectionMessage = err && err.message
-        }
-        resolve()
+      return IlpPacket.serializeIlpFulfill({
+        fulfillment,
+        data: response
       })
     }
-
-    // Reject the chunk if the receiver rejected the whole payment
-    if (record.acceptedByReceiver === false) {
-      debug(`rejecting chunk because payment ${paymentId} was rejected by receiver with message: ${record.rejectionMessage}`)
-      record.chunksRejected += 1
-      return this.reject('F99', record.rejectionMessage)
-    }
-
-    // Reject the chunk of the receiver rejected the specific chunk
-    if (!chunkAccepted) {
-      debug(`rejecting chunk ${request.sequence} of payment ${paymentId} because it was rejected by the receiver with the message: ${record.rejectionMessage}`)
-      record.chunksRejected += 1
-      return this.reject('F99', record.rejectionMessage)
-    }
-
-    // Update stats based on that chunk
-    record.chunksFulfilled += 1
-    record.received = record.received.plus(prepare.amount)
-    if (record.received.gte(record.expected) || request.type === constants.TYPE_PSK2_LAST_CHUNK) {
-      record.finished = true
-      record.finishedPromise && record.finishedPromise.resolve({
-        id: request.paymentId,
-        receivedAmount: record.received.toString(10),
-        expectedAmount: record.expected.toString(10),
-        chunksFulfilled: record.chunksFulfilled,
-        chunksRejected: record.chunksRejected
-        // TODO add data
-      })
-    }
-
-    debug(`got ${record.finished ? 'last ' : ''}chunk of amount ${prepare.amount} for payment: ${paymentId}. total received: ${record.received.toString(10)}`)
-
-    // Let the sender know how much has arrived
-    const response = serializePskPacket(sharedSecret, {
-      type: constants.TYPE_PSK2_FULFILLMENT,
-      paymentId: request.paymentId,
-      sequence: request.sequence,
-      paymentAmount: record.received,
-      chunkAmount: new BigNumber(prepare.amount)
-    })
-
-    debug(`fulfilling transfer ${request.sequence} for payment ${paymentId} with fulfillment: ${fulfillment.toString('base64')}`)
-
-    return IlpPacket.serializeIlpFulfill({
-      fulfillment,
-      data: response
-    })
   }
 }
 
@@ -407,10 +618,9 @@ export class Receiver {
  * import { createReceiver } from 'ilp-protocol-psk2'
  * const receiver = await createReceiver({
  *   plugin: myLedgerPlugin,
- *   paymentHandler: async (params) => {
- *     // Accept all incoming payments
- *     const result = await params.accept()
- *     console.log('Got payment for:', result.receivedAmount)
+ *   requestHandler: async (params) => {
+ *     params.accept()
+ *     console.log(`Got payment for: ${params.amount}`)
  *   }
  * })
  *
@@ -422,29 +632,28 @@ export async function createReceiver (opts: ReceiverOpts): Promise<Receiver> {
   const {
     plugin,
     paymentHandler,
+    requestHandler,
     secret = crypto.randomBytes(32)
   } = opts
   const receiver = new Receiver(plugin, secret)
-  receiver.registerPaymentHandler(paymentHandler)
+  if (paymentHandler) {
+    receiver.registerPaymentHandler(paymentHandler)
+  }
+  if (requestHandler) {
+    receiver.registerRequestHandler(requestHandler)
+  }
   await receiver.connect()
   return receiver
 }
 
-function parseAccount (destinationAccount: string): { destinationAccount: string, receiverId: string, token: Buffer } {
+function parseAccount (destinationAccount: string): { destinationAccount: string, token: Buffer } {
   const split = destinationAccount.split('.')
-  assert(split.length >= 2, 'account must have receiverId and token components')
-  const receiverId = split[split.length - 2]
+  assert(split.length >= 2, 'account must have token components')
   const token = Buffer.from(split[split.length - 1], 'base64')
   return {
-    destinationAccount: split.slice(0, split.length - 2).join('.'),
-    receiverId,
+    destinationAccount: split.slice(0, split.length - 1).join('.'),
     token
   }
-}
-
-function getReceiverId (secret: Buffer): string {
-  const buf = hmac(secret, Buffer.from(RECEIVER_ID_STRING, 'utf8')).slice(0, RECEIVER_ID_LENGTH)
-  return base64url(buf)
 }
 
 function generateSharedSecret (secret: Buffer, token: Buffer): Buffer {

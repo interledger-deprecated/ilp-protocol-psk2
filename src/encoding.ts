@@ -20,42 +20,14 @@ export enum Type {
   Error = 6
 }
 
-export interface PskRequest {
-  type: Type.Request,
+export interface PskPacket {
+  type: Type,
   requestId: number,
   amount: BigNumber,
   data: Buffer
 }
 
-export interface PskResponse {
-  type: Type.Response,
-  requestId: number,
-  amount: BigNumber,
-  data: Buffer
-}
-
-export interface PskError {
-  type: Type.Error,
-  requestId: number,
-  amount: BigNumber,
-  data: Buffer
-}
-
-export function isPskRequest (pskPacket: PskRequest | PskResponse | PskError | LegacyPskPacket): pskPacket is PskRequest {
-  return pskPacket.type === Type.Request
-}
-export function isPskResponse (pskPacket: PskRequest | PskResponse | PskError | LegacyPskPacket): pskPacket is PskResponse {
-  return pskPacket.type === Type.Response
-}
-export function isPskError (pskPacket: PskRequest | PskResponse | PskError | LegacyPskPacket): pskPacket is PskError {
-  return pskPacket.type === Type.Error
-}
-
-export function isLegacyPacket (pskPacket: PskRequest | PskResponse | PskError | LegacyPskPacket): pskPacket is LegacyPskPacket {
-  return pskPacket.type === constants.TYPE_PSK2_CHUNK || pskPacket.type === constants.TYPE_PSK2_LAST_CHUNK
-}
-
-export function serializePskPacket (sharedSecret: Buffer, pskPacket: PskRequest | PskResponse | PskError): Buffer {
+export function serializePskPacket (sharedSecret: Buffer, pskPacket: PskPacket): Buffer {
   const {
     type,
     requestId,
@@ -76,7 +48,7 @@ export function serializePskPacket (sharedSecret: Buffer, pskPacket: PskRequest 
   return ciphertext
 }
 
-export function deserializePskPacket (sharedSecret: Buffer, buffer: Buffer): PskRequest | PskResponse | PskError {
+export function deserializePskPacket (sharedSecret: Buffer, buffer: Buffer): PskPacket {
   const plaintext = decrypt(sharedSecret, buffer)
   const reader = oer.Reader.from(plaintext)
 

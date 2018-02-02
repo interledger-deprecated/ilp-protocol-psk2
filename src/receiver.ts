@@ -26,6 +26,8 @@ export interface RequestHandler {
 }
 
 export interface RequestHandlerParams {
+  /** If a keyId was passed into [`createAddressAndSecret`]{@link Receiver.createAddressAndSecret}, it will be present here when a packet is sent to that `destinationAccount` */
+  keyId?: Buffer,
   /** Amount that arrived */
   amount: BigNumber,
   /** Data sent by the sender */
@@ -213,13 +215,17 @@ export class Receiver {
    * The Receiver must be connected before this method can be called.
    *
    * **Note:** A single shared secret MUST NOT be given to more than one sender.
+   *
+   * @param keyId Additional segment that will be appended to the destinationAccount and can be used to correlate payments. This is authenticated but **unencrypted** so the entire Interledger will be able to see this value.
    */
-  generateAddressAndSecret (): { destinationAccount: string, sharedSecret: Buffer } {
+  generateAddressAndSecret (keyId?: Buffer): { destinationAccount: string, sharedSecret: Buffer } {
     assert(this.connected, 'Receiver must be connected')
     const token = crypto.randomBytes(TOKEN_LENGTH)
+    const keygen = (keyId ? Buffer.concat([token, keyId]) : token)
+    const sharedSecret = generateSharedSecret(this.secret, keygen)
     return {
-      sharedSecret: generateSharedSecret(this.secret, token),
-      destinationAccount: `${this.address}.${base64url(token)}`
+      sharedSecret,
+      destinationAccount: `${this.address}.${base64url(keygen)}`
     }
   }
 
@@ -242,7 +248,7 @@ export class Receiver {
     })
   }
 
-  protected async callRequestHandler (requestId: number, amount: string, data: Buffer): Promise<{ fulfill: boolean, responseData: Buffer }> {
+  protected async callRequestHandler (requestId: number, amount: string, data: Buffer, keyId?: Buffer): Promise<{ fulfill: boolean, responseData: Buffer }> {
     let fulfill = false
     let responseData = Buffer.alloc(0)
 
@@ -254,6 +260,7 @@ export class Receiver {
       // c) if there is an error thrown in the request handler
       try {
         await Promise.resolve(this.requestHandler({
+          keyId,
           amount: new BigNumber(amount),
           data,
           accept: (userResponse = Buffer.alloc(0)) => {
@@ -284,10 +291,18 @@ export class Receiver {
   protected handleData = async (data: Buffer): Promise<Buffer> => {
     let prepare: IlpPacket.IlpPrepare
     let sharedSecret: Buffer
+    let keyId = undefined
 
     try {
       prepare = IlpPacket.deserializeIlpPrepare(data)
-      sharedSecret = generateSharedSecret(this.secret, parseTokenFromAccount(this.address, prepare.destination))
+      const localPart = prepare.destination.replace(this.address + '.', '')
+      const split = localPart.split('.')
+      assert(split.length >= 1, 'destinationAccount does not have token')
+      const keygen = Buffer.from(split[0], 'base64')
+      if (keygen.length > TOKEN_LENGTH) {
+        keyId = keygen.slice(TOKEN_LENGTH)
+      }
+      sharedSecret = generateSharedSecret(this.secret, keygen)
     } catch (err) {
       debug('error parsing incoming prepare:', err)
       return this.reject('F06', 'Packet is not an IlpPrepare')
@@ -340,7 +355,7 @@ export class Receiver {
         return this.reject('F05', 'Condition generated does not match prepare')
       }
 
-      const { fulfill, responseData } = await this.callRequestHandler(packet.requestId, prepare.amount, packet.data)
+      const { fulfill, responseData } = await this.callRequestHandler(packet.requestId, prepare.amount, packet.data, keyId)
       if (fulfill) {
         return IlpPacket.serializeIlpFulfill({
           fulfillment,
@@ -392,7 +407,7 @@ export class Receiver {
         return this.reject('F05', 'Condition generated does not match prepare')
       }
 
-      const { fulfill } = await this.callRequestHandler(packet.sequence, prepare.amount, Buffer.alloc(0))
+      const { fulfill } = await this.callRequestHandler(packet.sequence, prepare.amount, Buffer.alloc(0), keyId)
       if (fulfill) {
         return IlpPacket.serializeIlpFulfill({
           fulfillment,
@@ -645,14 +660,6 @@ export async function createReceiver (opts: ReceiverOpts): Promise<Receiver> {
   }
   await receiver.connect()
   return receiver
-}
-
-function parseTokenFromAccount (baseAccount: string, destinationAccount: string): Buffer {
-  const localPart = destinationAccount.replace(baseAccount + '.', '')
-  const split = localPart.split('.')
-  assert(split.length >= 1, 'destinationAccount does not have token')
-  const token = Buffer.from(split[0], 'base64')
-  return token
 }
 
 function generateSharedSecret (secret: Buffer, token: Buffer): Buffer {

@@ -287,8 +287,7 @@ export class Receiver {
 
     try {
       prepare = IlpPacket.deserializeIlpPrepare(data)
-      const parsedAccount = parseAccount(prepare.destination)
-      sharedSecret = generateSharedSecret(this.secret, parsedAccount.token)
+      sharedSecret = generateSharedSecret(this.secret, parseTokenFromAccount(this.address, prepare.destination))
     } catch (err) {
       debug('error parsing incoming prepare:', err)
       return this.reject('F06', 'Packet is not an IlpPrepare')
@@ -648,14 +647,12 @@ export async function createReceiver (opts: ReceiverOpts): Promise<Receiver> {
   return receiver
 }
 
-function parseAccount (destinationAccount: string): { destinationAccount: string, token: Buffer } {
-  const split = destinationAccount.split('.')
-  assert(split.length >= 2, 'account must have token components')
-  const token = Buffer.from(split[split.length - 1], 'base64')
-  return {
-    destinationAccount: split.slice(0, split.length - 1).join('.'),
-    token
-  }
+function parseTokenFromAccount (baseAccount: string, destinationAccount: string): Buffer {
+  const localPart = destinationAccount.replace(baseAccount + '.', '')
+  const split = localPart.split('.')
+  assert(split.length >= 1, 'destinationAccount does not have token')
+  const token = Buffer.from(split[0], 'base64')
+  return token
 }
 
 function generateSharedSecret (secret: Buffer, token: Buffer): Buffer {

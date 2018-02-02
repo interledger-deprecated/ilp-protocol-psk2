@@ -288,6 +288,16 @@ describe('Receiver', function () {
           assert.equal(pskResponse.amount.toString(10), '50')
           assert.equal(pskResponse.data.toString('utf8'), 'yup')
         })
+
+        it('should be okay with exta segments being appended to the destinationAccount', async function () {
+          this.receiver.registerRequestHandler((params: RequestHandlerParams) => Promise.resolve().then(() => params.accept(Buffer.from('yup'))))
+          this.prepare.destination = this.prepare.destination + '.some.other.stuff'
+          const response = await this.plugin.sendData(IlpPacket.serializeIlpPrepare(this.prepare))
+          const pskResponse = encoding.deserializePskPacket(this.sharedSecret, IlpPacket.deserializeIlpFulfill(response).data)
+          assert.equal(pskResponse.type, 5)
+          assert.equal(pskResponse.amount.toString(10), '50')
+          assert.equal(pskResponse.data.toString('utf8'), 'yup')
+        })
       })
 
       describe('legacy PSK packets', function () {

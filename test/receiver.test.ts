@@ -289,6 +289,23 @@ describe('Receiver', function () {
           assert.equal(pskResponse.data.toString('utf8'), 'yup')
         })
 
+        it('should throw an error if the user calls accept and reject', async function () {
+          let threw = false
+          this.receiver.registerRequestHandler((params: RequestHandlerParams) => {
+            params.accept(Buffer.from('yup'))
+            try {
+              params.reject(Buffer.from('nope'))
+            } catch (err) {
+              threw = true
+              throw err
+            }
+          })
+          const response = await this.plugin.sendData(IlpPacket.serializeIlpPrepare(this.prepare))
+          const pskResponse = encoding.deserializePskPacket(this.sharedSecret, IlpPacket.deserializeIlpFulfill(response).data)
+          assert.equal(pskResponse.data.toString('utf8'), 'yup')
+          assert.equal(threw, true)
+        })
+
         it('should be okay with exta segments being appended to the destinationAccount', async function () {
           this.receiver.registerRequestHandler((params: RequestHandlerParams) => Promise.resolve().then(() => params.accept(Buffer.from('yup'))))
           this.prepare.destination = this.prepare.destination + '.some.other.stuff'

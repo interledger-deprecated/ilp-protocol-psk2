@@ -29,13 +29,12 @@ export interface SendRequestParams {
   requestId?: number,
   /** Expiry time for the ILP Prepare packet, defaults to 30 seconds from when the request is created */
   expiresAt?: Date,
-  // TODO should this be an enum instead?
   /**
    * Option to use an unfulfillable condition. For example, this may be used to send test payments for quotes.
    *
-   * If set to `'random'`, it will generate a random 32-byte condition. If set to `'zeros'`, it will set the condition to a 32-byte buffer filled with zeros.
+   * It is recommended to either generate this using crypto.randomBytes(32) or Buffer.alloc(32, 0).
    */
-  unfulfillableCondition?: 'random' | 'zeros'
+  unfulfillableCondition?: Buffer
 }
 
 /** Successful response indicating the payment was sent */
@@ -160,12 +159,10 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
   })
   let fulfillment
   let executionCondition
-  if (params.unfulfillableCondition === 'zeros') {
-    debug(`using condition of all zero-bytes for request: ${requestId}`)
-    executionCondition = Buffer.alloc(32, 0)
-  } else if (params.unfulfillableCondition === 'random') {
-    executionCondition = crypto.randomBytes(32)
-    debug(`using random unfulfillable condition for request: ${requestId}`)
+  if (params.unfulfillableCondition) {
+    assert(params.unfulfillableCondition.length === 32, 'unfulfillableCondition must be 32 bytes')
+    debug(`using user-specified unfulfillable condition for request: ${requestId}`)
+    executionCondition = params.unfulfillableCondition
   } else {
     fulfillment = dataToFulfillment(params.sharedSecret, pskPacket)
     executionCondition = fulfillmentToCondition(fulfillment)

@@ -104,7 +104,7 @@ describe('Sender', function () {
         sharedSecret: SHARED_SECRET,
         sourceAmount: '10',
         requestId: 1234,
-        unfulfillableCondition: 'random'
+        unfulfillableCondition: QUOTE_CONDITION
       })
       assert(stub.calledOnce)
       assert.deepEqual(IlpPacket.deserializeIlpPrepare(stub.args[0][0]).executionCondition, QUOTE_CONDITION)
@@ -131,7 +131,7 @@ describe('Sender', function () {
         sharedSecret: SHARED_SECRET,
         sourceAmount: '10',
         requestId: 1234,
-        unfulfillableCondition: 'zeros'
+        unfulfillableCondition: Buffer.alloc(32)
       })
       assert(stub.calledOnce)
       assert.deepEqual(IlpPacket.deserializeIlpPrepare(stub.args[0][0]).executionCondition, Buffer.alloc(32))
@@ -249,7 +249,7 @@ describe('Sender', function () {
       const result = await sender.sendRequest(this.plugin, {
         ...receiver.generateAddressAndSecret(),
         sourceAmount: '10',
-        unfulfillableCondition: 'random'
+        unfulfillableCondition: crypto.randomBytes(32)
       }) as sender.PskError
       assert.equal(result.fulfilled, false)
       assert.equal(result.destinationAmount.toString(10), '5')

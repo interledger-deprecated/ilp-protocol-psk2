@@ -5,7 +5,9 @@
 [![codecov](https://codecov.io/gh/interledgerjs/ilp-protocol-psk2/branch/master/graph/badge.svg)](https://codecov.io/gh/interledgerjs/ilp-protocol-psk2)
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 
-PSK2 sends requests and responses over ILP that can carry money and/or data. It can be used to send indivdiual payment chunks, unfulfillable test payments for quotes, and it can be used as part of a protocol/module for streaming or chunked payments. PSK2 uses a secret shared between the sender and receiver to generate the ILP conditions and fulfillments, as well as encrypt and authenticate the request and response data.
+PSK2 is a request/response protocol built on ILP that can send value and/or data. It handles generating conditions and fulfillments for ILP Prepare/Fulfill packets to send value, and it encrypts and authenticates request and response data.
+
+PSK2 can be used to send indivdiual payment chunks, unfulfillable test payments for quotes, and it can be used as part of a protocol/module for streaming or chunked payments.
 
 ## Installation
 
@@ -28,9 +30,10 @@ const { createReceive } = require('ilp-protocol-psk2')
 const receiver = await createReceiver({
   plugin: myLedgerPlugin,
   requestHandler: (params) => {
-    // Accept all incoming payments
-    params.accept()
-    console.log(`Got payment for: ${params.amount} with data: ${params.data.toString()}`)
+    // Fulfill the incoming request
+    // Note the data format and encoding is up to the application protocol / module
+    params.accept(Buffer.from('thanks for the payment!'))
+    console.log(`Got paid: ${params.amount} and got this data: ${params.data.toString()}`)
   }
 })
 
@@ -56,7 +59,7 @@ const { fulfilled, destinationAmount, data } = await sendRequest(myLedgerPlugin,
   data: Buffer.from('here you go!')
 })
 if (fulfilled) {
-  console.log(`Sent payment of: 1000, receiver got ${destinationAmount} and responded with the message: ${data.toString('utf8')}`)
+  console.log(`Sent request with 1000 units of value attached, receiver got ${destinationAmount} and responded with the message: ${data.toString('utf8')}`)
   // Note the data format and encoding is up to the application protocol / module
 }
 ```
@@ -65,6 +68,7 @@ if (fulfilled) {
 
 ```js
 const { sendRequest } = require('ilp-protocol-psk2')
+const { randomBytes } = require('crypto')
 
 // These values must be communicated beforehand for the sender to send a payment
 const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()
@@ -73,7 +77,7 @@ const { destinationAmount } = await sendRequest(myLedgerPlugin, {
   destinationAccount,
   sharedSecret,
   sourceAmount: '1000',
-  unfulfillableCondition: 'random'
+  unfulfillableCondition: randomBytes(32)
 })
 console.log(`Path exchange rate is: ${destinationAmount.dividedBy(1000)}`
 ```

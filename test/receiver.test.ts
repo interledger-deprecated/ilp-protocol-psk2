@@ -298,6 +298,62 @@ describe('Receiver', function () {
           assert.equal(pskResponse.amount.toString(10), '50')
           assert.equal(pskResponse.data.toString('utf8'), 'yup')
         })
+
+        it('should pass the keyId to the request handler if one was passed in to createAddressAndSecret', async function () {
+          const keyId = Buffer.from('invoice12345')
+          const { sharedSecret, destinationAccount } = this.receiver.generateAddressAndSecret(keyId)
+          const pskRequest = {
+            type: encoding.Type.Request,
+            requestId: 1000,
+            amount: new BigNumber(50),
+            data: Buffer.from('hello')
+          }
+          const pskRequestBuffer = encoding.serializePskPacket(sharedSecret, pskRequest)
+          const fulfillment = condition.dataToFulfillment(sharedSecret, pskRequestBuffer)
+          const executionCondition = condition.fulfillmentToCondition(fulfillment)
+          const prepare = {
+            destination: destinationAccount,
+            amount: '100',
+            data: pskRequestBuffer,
+            executionCondition: executionCondition,
+            expiresAt: new Date(Date.now() + 3000)
+          }
+
+          this.receiver.registerRequestHandler((params: RequestHandlerParams) => {
+            assert.deepEqual(params.keyId, keyId)
+            params.accept(Buffer.from('yup', 'utf8'))
+          })
+          const response = await this.plugin.sendData(IlpPacket.serializeIlpPrepare(prepare))
+          const pskResponse = encoding.deserializePskPacket(sharedSecret, IlpPacket.deserializeIlpFulfill(response).data)
+          assert.equal(pskResponse.type, 5)
+        })
+
+        it('should reject if the keyId is modified', async function () {
+          const keyId = Buffer.from('invoice12345')
+          const { sharedSecret, destinationAccount } = this.receiver.generateAddressAndSecret(keyId)
+          const pskRequest = {
+            type: encoding.Type.Request,
+            requestId: 1000,
+            amount: new BigNumber(50),
+            data: Buffer.from('hello')
+          }
+          const pskRequestBuffer = encoding.serializePskPacket(sharedSecret, pskRequest)
+          const fulfillment = condition.dataToFulfillment(sharedSecret, pskRequestBuffer)
+          const executionCondition = condition.fulfillmentToCondition(fulfillment)
+          const modified = destinationAccount.slice(0, -1) + 'z'
+          const prepare = {
+            destination: modified,
+            amount: '100',
+            data: pskRequestBuffer,
+            executionCondition: executionCondition,
+            expiresAt: new Date(Date.now() + 3000)
+          }
+
+          const response = await this.plugin.sendData(IlpPacket.serializeIlpPrepare(prepare))
+          const packet = IlpPacket.deserializeIlpReject(response)
+          assert.equal(packet.code, 'F06')
+          assert.equal(packet.message, 'Unable to parse data')
+        })
       })
 
       describe('legacy PSK packets', function () {

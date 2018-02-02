@@ -250,6 +250,7 @@ export class Receiver {
 
   protected async callRequestHandler (requestId: number, amount: string, data: Buffer, keyId?: Buffer): Promise<{ fulfill: boolean, responseData: Buffer }> {
     let fulfill = false
+    let finalized = false
     let responseData = Buffer.alloc(0)
 
     // This promise resolves when the user has either accepted or rejected the payment
@@ -264,11 +265,19 @@ export class Receiver {
           amount: new BigNumber(amount),
           data,
           accept: (userResponse = Buffer.alloc(0)) => {
+            if (finalized) {
+              throw new Error(`Packet was already ${fulfill ? 'fulfilled' : 'rejected'}`)
+            }
+            finalized = true
             fulfill = true
             responseData = userResponse
             resolve()
           },
           reject: (userResponse = Buffer.alloc(0)) => {
+            if (finalized) {
+              throw new Error(`Packet was already ${fulfill ? 'fulfilled' : 'rejected'}`)
+            }
+            finalized = true
             responseData = userResponse
             debug(`user rejected packet with requestId: ${requestId}`)
             resolve()

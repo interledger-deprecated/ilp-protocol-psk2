@@ -1,15 +1,11 @@
 # PSKv2
-> Javascript implementation of the [Pre-Shared Key V2](https://github.com/interledger/rfcs/pull/351) Interledger Transport Protocol.
+> Javascript implementation of the [Pre-Shared Key V2](https://github.com/interledger/rfcs/blob/master/0025-pre-shared-key-2/0025-pre-shared-key-2.md) Interledger Transport Protocol.
 
 [![CircleCI](https://circleci.com/gh/interledgerjs/ilp-protocol-psk2.svg?style=shield)](https://circleci.com/gh/interledgerjs/ilp-protocol-psk2)
 [![codecov](https://codecov.io/gh/interledgerjs/ilp-protocol-psk2/branch/master/graph/badge.svg)](https://codecov.io/gh/interledgerjs/ilp-protocol-psk2)
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 
-## Features
-
-- End-to-End Quoting
-- Single Payments
-- **(Experimental)** Chunked Payments
+PSK2 sends requests and responses over ILP that can carry money and/or data. It can be used to send indivdiual payment chunks, unfulfillable test payments for quotes, and it can be used as part of a protocol/module for streaming or chunked payments. PSK2 uses a secret shared between the sender and receiver to generate the ILP conditions and fulfillments, as well as encrypt and authenticate the request and response data.
 
 ## Installation
 
@@ -42,64 +38,42 @@ const { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
 // Give these two values to a sender to enable them to send payments to this Receiver
 ```
 
-### Sending a Single Payment
+### Sending a Request
 
 Uses [`sendSingleChunk`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk) and [`quoteDestinationAmount`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#quotedestinationamount).
 
 ```js
-const { sendSingleChunk, quoteDestinationAmount } = require('ilp-protocol-psk2')
+const { sendRequest } = require('ilp-protocol-psk2')
 
 // These values must be communicated beforehand for the sender to send a payment
 const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()
 
-const { sourceAmount } = await quoteDestinationAmount(myLedgerPlugin, {
+const { fulfilled, destinationAmount, data } = await sendRequest(myLedgerPlugin, {
   destinationAccount,
   sharedSecret,
-  destinationAmount: '1000'
+  sourceAmount: '1000',
+  minDestinationAmount: '500',
+  data: Buffer.from('here you go!')
 })
-
-const result = await sendSingleChunk(myLedgerPlugin, {
-  destinationAccount,
-  sharedSecret,
-  sourceAmount,
-  minDestinationAmount: '999'
-})
-console.log(`Sent payment of ${result.sourceAmount}, receiver got ${result.destinationAmount}`)
+if (fulfilled) {
+  console.log(`Sent payment of: 1000, receiver got ${destinationAmount} and responded with the message: ${data.toString('utf8')}`)
+  // Note the data format and encoding is up to the application protocol / module
+}
 ```
 
-### Sending a Streaming Payment
+### Sending an Unfulfillable Request or Quote
 
-Uses [`sendSingleChunk`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk).
-
-```typescript
-const { randomBytes } = require('crypto')
-const { sendSingleChunk } = require('ilp-protocol-psk2')
+```js
+const { sendRequest } = require('ilp-protocol-psk2')
 
 // These values must be communicated beforehand for the sender to send a payment
 const { destinationAccount, sharedSecret } = await getAddressAndSecretFromReceiver()
 
-const id = randomBytes(16)
-let sequence = 0
-const firstChunkResult = await sendSingleChunk(myLedgerPlugin, {
+const { destinationAmount } = await sendRequest(myLedgerPlugin, {
   destinationAccount,
   sharedSecret,
-  sourceAmount,
-  minDestinationAmount: '0',
-  id,
-  sequence,
-  lastChunk: false
+  sourceAmount: '1000',
+  unfulfillableCondition: 'random'
 })
-
-// Repeat as many times as desired, incrementing the sequence each time
-// Note that the path exchange rate can be determined by dividing the destination amount returned by the chunk amount sent
-
-const lastChunkResult = await sendSingleChunk(myLedgerPlugin, {
-  destinationAccount,
-  sharedSecret,
-  sourceAmount,
-  minDestinationAmount: '0',
-  id,
-  sequence,
-  lastChunk: true
-})
+console.log(`Path exchange rate is: ${destinationAmount.dividedBy(1000)}`
 ```

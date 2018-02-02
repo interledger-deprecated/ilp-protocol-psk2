@@ -63,7 +63,7 @@ describe('Receiver', function () {
       assert(false, 'should not get here')
     })
 
-    it('should append the receiver ID and token to the address returned by ILDCP', async function () {
+    it('should append the token to the address returned by ILDCP', async function () {
       await this.receiver.connect()
       const { destinationAccount, sharedSecret } = this.receiver.generateAddressAndSecret()
       assert.match(destinationAccount, /^test\.receiver\.[a-zA-Z0-9_-]+$/)

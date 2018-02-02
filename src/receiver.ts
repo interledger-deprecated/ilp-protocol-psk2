@@ -11,11 +11,8 @@ import * as constants from './constants'
 import * as encoding from './encoding'
 import { dataToFulfillment, fulfillmentToCondition } from './condition'
 import * as ILDCP from 'ilp-protocol-ildcp'
-import { deprecate } from 'util'
 
-const RECEIVER_ID_STRING = 'ilp_psk2_receiver_id'
 const PSK_GENERATION_STRING = 'ilp_psk2_generation'
-const RECEIVER_ID_LENGTH = 8
 const TOKEN_LENGTH = 18
 const SHARED_SECRET_LENGTH = 32
 
@@ -192,7 +189,8 @@ export class Receiver {
   /**
    * @deprecated. Switch to [`registerRequestHandler`]{@link Receiver.registerRequestHandler} instead
    */
-  registerPaymentHandler = deprecate((handler: PaymentHandler): void => {
+  registerPaymentHandler (handler: PaymentHandler): void {
+    console.warn('DeprecationWarning: registerPaymentHandler is deprecated and will be removed in the next version. Use registerRequestHandler instead')
     if (this.usingRequestHandlerApi) {
       throw new Error('PaymentHandler and RequestHandler APIs cannot be used at the same time')
     }
@@ -200,7 +198,7 @@ export class Receiver {
     /* tslint:disable-next-line:strict-type-predicates */
     assert(typeof handler === 'function', 'payment handler must be a function')
     this.paymentHandler = handler
-  }, 'Receiver.registerPaymentHandler is deprecated and will be removed in the next version. Switch to Receiver.registerRequestHandler instead')
+  }
 
   /**
    * @deprecated. Use RequestHandlers instead
@@ -395,7 +393,7 @@ export class Receiver {
         return this.reject('F05', 'Condition generated does not match prepare')
       }
 
-      const { fulfill, responseData } = await this.callRequestHandler(packet.sequence, prepare.amount, Buffer.alloc(0))
+      const { fulfill } = await this.callRequestHandler(packet.sequence, prepare.amount, Buffer.alloc(0))
       if (fulfill) {
         return IlpPacket.serializeIlpFulfill({
           fulfillment,

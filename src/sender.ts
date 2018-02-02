@@ -7,7 +7,6 @@ import { default as convert, PluginV1, PluginV2 } from 'ilp-compat-plugin'
 import * as constants from './constants'
 import * as encoding from './encoding'
 import { dataToFulfillment, fulfillmentToCondition } from './condition'
-import { deprecate } from 'util'
 
 const DEFAULT_TRANSFER_TIMEOUT = 30000
 const STARTING_TRANSFER_AMOUNT = 1000
@@ -185,10 +184,8 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
   let packet: IlpPacket.IlpFulfill | IlpPacket.IlpRejection
   try {
     const parsed = IlpPacket.deserializeIlpPacket(response)
-    if (parsed.type === IlpPacket.Type.TYPE_ILP_FULFILL) {
-      packet = parsed.data as IlpPacket.IlpFulfill
-    } else if (parsed.type === IlpPacket.Type.TYPE_ILP_REJECT) {
-      packet = parsed.data as IlpPacket.IlpRejection
+    if (parsed.type === IlpPacket.Type.TYPE_ILP_FULFILL || parsed.type === IlpPacket.Type.TYPE_ILP_REJECT) {
+      packet = parsed.data as IlpPacket.IlpFulfill | IlpPacket.IlpRejection
     } else {
       throw new Error('Unexpected ILP packet type: ' + parsed.type)
     }
@@ -253,6 +250,7 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
   } catch (err) {
     debug('error parsing PSK response packet:', packet.data.toString('hex'), err)
   }
+  /* tslint:disable-next-line:no-unnecessary-type-assertion */
   pskResponsePacket = pskResponsePacket!
 
   // Return the fields from the response packet only if the request ID and PSK packet type are what we expect
@@ -428,7 +426,8 @@ export interface SendDestinationParams {
 /**
  * @deprecated Use sendRequest with an unfulfillable condition instead.
  */
-export const quoteSourceAmount = deprecate(async function quoteSourceAmount (plugin: PluginV2 | PluginV1, params: QuoteSourceParams) {
+export async function quoteSourceAmount (plugin: PluginV2 | PluginV1, params: QuoteSourceParams) {
+  console.warn('DeprecationWarning: quoteSourceAmount is deprecated and will be removed in the next version. Use sendRequest with an unfulfillable condition instead')
   let {
     sourceAmount,
     sharedSecret,
@@ -443,18 +442,13 @@ export const quoteSourceAmount = deprecate(async function quoteSourceAmount (plu
   assert(destinationAccount && typeof destinationAccount === 'string', 'destinationAccount is required')
   assert((Buffer.isBuffer(id) && id.length === 16), 'id must be a 16-byte buffer')
   return quote(plugin, sharedSecret, id, destinationAccount, sourceAmount, undefined)
-}, 'quoteSourceAmount is deprecated and will be removed in the next version. Use sendRequest with an unfulfillable condition instead')
+}
 
 /**
- * Get an approximate quote for how much the sender must send in order to deliver the given destination amount to the Receiver.
- *
- * The value returned is non-binding so the exchange rate may change after the quote is returned.
- *
- * Currently, this method assumes exchange rates are linear. The result may be incorrect if the path exchange rate varies by size of payment.
- *
- * **Note:** This method sends an unfulfillable test payment of `1000` source units to the Receiver to determine the path exchange rate.
+ * @deprecated Use sendRequest with an unfulfillable condition instead.
  */
-export const quoteDestinationAmount = deprecate(async function quoteDestinationAmount (plugin: PluginV2 | PluginV1, params: QuoteDestinationParams) {
+export async function quoteDestinationAmount (plugin: PluginV2 | PluginV1, params: QuoteDestinationParams) {
+  console.warn('DeprecationWarning: quoteDestinationAmount is deprecated and will be removed in the next version. Use sendRequest with an unfulfillable condition instead')
   let {
     destinationAmount,
     sharedSecret,
@@ -469,7 +463,7 @@ export const quoteDestinationAmount = deprecate(async function quoteDestinationA
   assert(destinationAccount && typeof destinationAccount === 'string', 'destinationAccount is required')
   assert((Buffer.isBuffer(id) && id.length === 16), 'id must be a 16-byte buffer if supplied')
   return quote(plugin, sharedSecret, id, destinationAccount, undefined, destinationAmount)
-}, 'quoteDestinationAmount is deprecated and will be removed in the next version. Use sendRequest with an unfulfillable condition instead')
+}
 
 async function quote (
   plugin: PluginV2 | PluginV1,
@@ -553,7 +547,8 @@ async function quote (
 /**
  * @deprecated Use [`sendRequest`]{@link sendRequest} instead
  */
-export const sendSingleChunk = deprecate(async function sendSingleChunk (plugin: any, params: SendSingleChunkParams | SendSingleChunkAdvancedParams): Promise<SendResult> {
+export async function sendSingleChunk (plugin: any, params: SendSingleChunkParams | SendSingleChunkAdvancedParams): Promise<SendResult> {
+  console.warn('DeprecationWarning: sendSingleChunk is deprecated and will be removed in the next version. Use sendRequest instead')
   plugin = convert(plugin)
   const debug = Debug('ilp-protocol-psk2:sendSingleChunk')
   const {
@@ -660,12 +655,13 @@ export const sendSingleChunk = deprecate(async function sendSingleChunk (plugin:
     chunksFulfilled: 1,
     chunksRejected: 0
   }
-}, 'sendSingleChunk is deprecated and will be removed in the next version. Use sendRequest instead')
+}
 
 /**
  * @deprecated PSK2 no longer includes chunked payments. They will be implemented in a separate protocol / module.
  */
 export async function sendSourceAmount (plugin: any, params: SendSourceParams): Promise<SendResult> {
+  console.warn('DeprecationWarning: Chunked payments are deprecated in this module and will be removed in the next version. Chunked payments will be implemented by a separate protocol / module that properly handles segmentation and reassembly of money and data.')
   assert(params.sourceAmount, 'sourceAmount is required')
   return sendChunkedPayment(plugin, params)
 }
@@ -674,6 +670,7 @@ export async function sendSourceAmount (plugin: any, params: SendSourceParams): 
  * @deprecated PSK2 no longer includes chunked payments. They will be implemented in a separate protocol / module.
  */
 export async function sendDestinationAmount (plugin: any, params: SendDestinationParams): Promise<SendResult> {
+  console.warn('DeprecationWarning: Chunked payments are deprecated in this module and will be removed in the next version. Chunked payments will be implemented by a separate protocol / module that properly handles segmentation and reassembly of money and data.')
   // TODO allow setting a maximum source amount? (the problem would be that even if you hit the max, you still would have sent it without delivering the destination amount)
   assert(params.destinationAmount, 'destinationAmount is required')
   return sendChunkedPayment(plugin, params)
@@ -687,7 +684,7 @@ interface ChunkedPaymentParams {
   id?: Buffer
 }
 // TODO accept user data also
-const sendChunkedPayment = deprecate(async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): Promise<SendResult> {
+async function sendChunkedPayment (plugin: any, params: ChunkedPaymentParams): Promise<SendResult> {
   const {
     sharedSecret,
     destinationAccount,
@@ -869,4 +866,4 @@ const sendChunkedPayment = deprecate(async function sendChunkedPayment (plugin: 
     chunksFulfilled,
     chunksRejected
   }
-}, 'Chunked payments are deprecated in this module and will be removed in the next version. Chunked payments will be implemented by a separate protocol / module that properly handles segmentation and reassembly of money and data.')
+}

@@ -40,6 +40,8 @@ export interface SendRequestParams {
 
 /** Successful response indicating the payment was sent */
 export interface PskResponse {
+  /** Always true for PskResponses */
+  fulfilled: boolean,
   // TODO should there be a field like "fulfilled" for developers who are not using Typescript?
   /**
    * Amount that the receiver says they received. Note: you must trust the receiver not to lie about this.
@@ -57,6 +59,8 @@ export interface PskResponse {
 
 /** Error response indicating the payment was rejected */
 export interface PskError {
+  /** Always false for PskErrors */
+  fulfilled: boolean,
   /** ILP Error Code (for example, `'F99'`) */
   code: string,
   /** Error message. Note this is **not** authenticated and does not necessarily come from the receiver */
@@ -206,6 +210,7 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
           sourceAmount: params.sourceAmount
         })
         return {
+          fulfilled: false,
           code: 'F99',
           message: '',
           triggeredBy: params.destinationAccount,
@@ -216,6 +221,7 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
         debug('sending a legacy quote request did not work either', err)
         return {
           ...packet,
+          fulfilled: false,
           destinationAmount: new BigNumber(0)
         }
       }
@@ -231,6 +237,7 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
           lastChunk: false
         })
         return {
+          fulfilled: true,
           destinationAmount: new BigNumber(result.destinationAmount),
           data: Buffer.alloc(0)
         }
@@ -238,6 +245,7 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
         debug('sending a legacy single chunk did not work either', err)
         return {
           ...packet,
+          fulfilled: false,
           destinationAmount: new BigNumber(0)
         }
       }
@@ -275,11 +283,13 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
 
   if (isFulfill(packet)) {
     return {
+      fulfilled: true,
       destinationAmount,
       data
     }
   } else {
     return {
+      fulfilled: false,
       code: packet.code,
       message: packet.message,
       triggeredBy: packet.triggeredBy,

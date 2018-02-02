@@ -63,6 +63,7 @@ describe('Sender', function () {
         sourceAmount: '10',
         minDestinationAmount: '1'
       })
+      assert.equal(result.fulfilled, true)
       assert.equal(result.data.toString('utf8'), 'thanks!')
       assert.equal((result as sender.PskResponse).destinationAmount.toString(10), '5')
     })
@@ -80,6 +81,7 @@ describe('Sender', function () {
         sourceAmount: '10',
         minDestinationAmount: '1'
       })
+      assert.equal(result.fulfilled, false)
       assert.equal(result.data.toString('utf8'), 'nope')
       assert.equal(result.destinationAmount.toString(10), '5')
     })
@@ -106,6 +108,7 @@ describe('Sender', function () {
       })
       assert(stub.calledOnce)
       assert.deepEqual(IlpPacket.deserializeIlpPrepare(stub.args[0][0]).executionCondition, QUOTE_CONDITION)
+      assert.equal(result.fulfilled, false)
       assert.equal(result.destinationAmount.toString(10), '5')
       assert.equal(result.data.toString('utf8'), 'hello')
     })
@@ -132,6 +135,7 @@ describe('Sender', function () {
       })
       assert(stub.calledOnce)
       assert.deepEqual(IlpPacket.deserializeIlpPrepare(stub.args[0][0]).executionCondition, Buffer.alloc(32))
+      assert.equal(result.fulfilled, false)
       assert.equal(result.destinationAmount.toString(10), '5')
       assert.equal(result.data.toString('utf8'), 'hello')
     })
@@ -179,6 +183,7 @@ describe('Sender', function () {
         requestId: 1234
       }) as sender.PskError
       assert(stub.calledOnce)
+      assert.equal(result.fulfilled, false)
       assert.equal(result.code, 'F99')
       assert.equal(result.destinationAmount.toString(10), '0')
       assert.equal(result.data.toString('utf8'), '')
@@ -204,6 +209,7 @@ describe('Sender', function () {
         requestId: 1234
       }) as sender.PskError
       assert(stub.calledOnce)
+      assert.equal(result.fulfilled, false)
       assert.equal(result.code, 'F99')
       assert.equal(result.destinationAmount.toString(10), '0')
       assert.equal(result.data.toString('utf8'), '')
@@ -229,6 +235,7 @@ describe('Sender', function () {
         requestId: 1234
       }) as sender.PskError
       assert(stub.calledOnce)
+      assert.equal(result.fulfilled, false)
       assert.equal(result.code, 'F99')
       assert.equal(result.destinationAmount.toString(10), '0')
       assert.equal(result.data.toString('utf8'), '')
@@ -244,6 +251,7 @@ describe('Sender', function () {
         sourceAmount: '10',
         unfulfillableCondition: 'random'
       }) as sender.PskError
+      assert.equal(result.fulfilled, false)
       assert.equal(result.destinationAmount.toString(10), '5')
     })
 
@@ -256,6 +264,7 @@ describe('Sender', function () {
         ...receiver.generateAddressAndSecret(),
         sourceAmount: '10'
       }) as sender.PskResponse
+      assert.equal(result.fulfilled, true)
       assert.equal(result.destinationAmount.toString(10), '5')
     })
   })

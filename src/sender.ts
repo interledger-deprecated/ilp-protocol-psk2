@@ -198,7 +198,7 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
   // Try sending a legacy packet if we got an Unexpected Payment error
   // (This functionality will be removed in the next version)
   if (!isFulfill(packet) && packet.code === 'F06' && packet.data.length === 0) {
-    debug('got an F06 error, trying to send a legacy packet instead')
+    debug(`got an F06 error for request ${requestId}, trying to send a legacy packet instead`)
     if (params.unfulfillableCondition) {
       try {
         const quote = await quoteSourceAmount(plugin, {
@@ -215,7 +215,7 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
           destinationAmount: new BigNumber(quote.destinationAmount)
         }
       } catch (err) {
-        debug('sending a legacy quote request did not work either', err)
+        debug(`sending a legacy quote request did not work either for request ${requestId}:`, err)
         return {
           ...packet,
           fulfilled: false,
@@ -224,6 +224,7 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
       }
     } else {
       try {
+        debug(`sending a legacy single chunk for request: ${requestId}`)
         const result = await sendSingleChunk(plugin, {
           destinationAccount: params.destinationAccount,
           sharedSecret: params.sharedSecret,
@@ -239,7 +240,7 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
           data: Buffer.alloc(0)
         }
       } catch (err) {
-        debug('sending a legacy single chunk did not work either', err)
+        debug(`sending a legacy single chunk did not work either for request ${requestId}:`, err)
         return {
           ...packet,
           fulfilled: false,
@@ -279,12 +280,14 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
   }
 
   if (isFulfill(packet)) {
+    debug(`request ${requestId} was fulfilled`)
     return {
       fulfilled: true,
       destinationAmount,
       data
     }
   } else {
+    debug(`request ${requestId} was rejected with code: ${packet.code}`)
     return {
       fulfilled: false,
       code: packet.code,

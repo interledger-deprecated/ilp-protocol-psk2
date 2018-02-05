@@ -225,11 +225,18 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
     } else {
       try {
         debug(`sending a legacy single chunk for request: ${requestId}`)
+        // If the data is exactly 20 bytes, assume it is the paymentId and sequence for compatbility purposes
+        let id: Buffer
+        if (Buffer.isBuffer(params.data) && (params.data.length === 20 || params.data.length === 16)) {
+          id = params.data.slice(0, 16)
+        } else {
+          id = Buffer.alloc(16, 0)
+        }
         const result = await sendSingleChunk(plugin, {
+          id,
           destinationAccount: params.destinationAccount,
           sharedSecret: params.sharedSecret,
           sourceAmount: params.sourceAmount,
-          id: Buffer.alloc(16),
           sequence: requestId,
           minDestinationAmount: params.minDestinationAmount,
           lastChunk: false

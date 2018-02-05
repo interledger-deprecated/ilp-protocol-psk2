@@ -271,6 +271,7 @@ export class Receiver {
             finalized = true
             fulfill = true
             responseData = userResponse
+            debug(`user accepted packet with requestId ${requestId}${keyId ? ' for keyId: ' + base64url(keyId) : ''}`)
             resolve()
           },
           reject: (userResponse = Buffer.alloc(0)) => {
@@ -279,14 +280,17 @@ export class Receiver {
             }
             finalized = true
             responseData = userResponse
-            debug(`user rejected packet with requestId: ${requestId}`)
+            debug(`user rejected packet with requestId: ${requestId}${keyId ? ' for keyId: ' + base64url(keyId) : ''}`)
             resolve()
           }
         }))
       } catch (err) {
         debug('error in requestHandler, going to reject the packet:', err)
       }
-      debug('requestHandler returned without user calling accept or reject, rejecting the packet now')
+      if (!finalized) {
+        finalized = true
+        debug('requestHandler returned without user calling accept or reject, rejecting the packet now')
+      }
       resolve()
     })
 
@@ -358,10 +362,17 @@ export class Receiver {
       try {
         fulfillment = dataToFulfillment(sharedSecret, prepare.data)
         const generatedCondition = fulfillmentToCondition(fulfillment)
-        assert(generatedCondition.equals(prepare.executionCondition), `condition generated does not match. expected: ${prepare.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
+        if (!generatedCondition.equals(prepare.executionCondition)) {
+          throw new Error(`condition generated does not match. expected: ${prepare.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
+        }
       } catch (err) {
-        debug('error regenerating fulfillment:', err)
-        return this.reject('F05', 'Condition generated does not match prepare')
+        debug('error regenerating fulfillment, rejecting packet:', err.message)
+        return this.reject('F05', 'Condition generated does not match prepare', encoding.serializePskPacket(sharedSecret, {
+          type: encoding.Type.Error,
+          requestId: packet.requestId,
+          amount: new BigNumber(prepare.amount),
+          data: Buffer.alloc(0)
+        }))
       }
 
       const { fulfill, responseData } = await this.callRequestHandler(packet.requestId, prepare.amount, packet.data, keyId)
@@ -413,10 +424,21 @@ export class Receiver {
         assert(generatedCondition.equals(prepare.executionCondition), `condition generated does not match. expected: ${prepare.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
       } catch (err) {
         debug('error regenerating fulfillment:', err)
-        return this.reject('F05', 'Condition generated does not match prepare')
+        return this.reject('F05', 'Condition generated does not match prepare', encoding.serializeLegacyPskPacket(sharedSecret, {
+          type: constants.TYPE_PSK2_REJECT,
+          paymentId: packet.paymentId,
+          sequence: packet.sequence,
+          paymentAmount: new BigNumber(0),
+          chunkAmount: new BigNumber(prepare.amount),
+          applicationData: Buffer.alloc(0)
+        }))
       }
 
-      const { fulfill } = await this.callRequestHandler(packet.sequence, prepare.amount, Buffer.alloc(0), keyId)
+      const compatibilityData = Buffer.alloc(20)
+      packet.paymentId.copy(compatibilityData)
+      compatibilityData.writeUInt32BE(packet.sequence, 16)
+
+      const { fulfill } = await this.callRequestHandler(packet.sequence, prepare.amount, compatibilityData, keyId)
       if (fulfill) {
         return IlpPacket.serializeIlpFulfill({
           fulfillment,

@@ -216,7 +216,7 @@ describe('Receiver', function () {
           assert.equal(pskResponse.amount.toString(10), '49')
         })
 
-        it('should reject if it cannot properly generate the fulfillment', async function () {
+        it('should reject (with the PSK rejection packet attached) if it cannot properly generate the fulfillment', async function () {
           // Note: We should be able to use the fixtures attached to this but for some reason this test fails unless these are copied here
           this.pskRequest = {
             type: encoding.Type.Request,
@@ -234,12 +234,12 @@ describe('Receiver', function () {
             expiresAt: new Date(Date.now() + 3000)
           }
           const response = await this.plugin.sendData(IlpPacket.serializeIlpPrepare(prepare))
-          assert.deepEqual(IlpPacket.deserializeIlpReject(response), {
-            code: 'F05',
-            message: 'Condition generated does not match prepare',
-            triggeredBy: 'test.receiver',
-            data: Buffer.alloc(0)
-          })
+          const parsed = IlpPacket.deserializeIlpReject(response)
+          assert.equal(parsed.code, 'F05')
+          assert.equal(parsed.message, 'Condition generated does not match prepare')
+          assert.notEqual(parsed.data.length, 0)
+          const pskResponse = encoding.deserializePskPacket(this.sharedSecret, parsed.data)
+          assert.equal(pskResponse.amount.toString(10), '50')
         })
       })
 

@@ -7,7 +7,7 @@ import BigNumber from 'bignumber.js'
 import * as IlpPacket from 'ilp-packet'
 import MockPlugin from './mocks/plugin'
 import { Receiver, createReceiver, PaymentReceived, PaymentHandlerParams, RequestHandlerParams } from '../src/receiver'
-import { quoteSourceAmount, sendSingleChunk } from '../src/sender'
+import { sendRequest, quoteSourceAmount, sendSingleChunk } from '../src/sender'
 import * as encoding from '../src/encoding'
 import * as ILDCP from 'ilp-protocol-ildcp'
 import { MAX_UINT64, TYPE_PSK2_FULFILLMENT, TYPE_PSK2_REJECT } from '../src/constants'
@@ -246,6 +246,21 @@ describe('Receiver', function () {
       describe('valid packets', function () {
         beforeEach(function () {
           this.receiver.deregisterRequestHandler()
+        })
+
+        it('should accept packets sent by sendRequest', async function () {
+          this.receiver.registerRequestHandler((params: RequestHandlerParams) => {
+            params.accept(Buffer.from('thanks!'))
+          })
+          const result = await sendRequest(this.plugin, {
+            destinationAccount: this.destinationAccount,
+            sharedSecret: this.sharedSecret,
+            sourceAmount: '10',
+            minDestinationAmount: '1'
+          })
+          assert.equal(result.fulfilled, true)
+          assert.equal(result.data.toString('utf8'), 'thanks!')
+          assert.equal(result.destinationAmount.toString(10), '5')
         })
 
         it('should call the RequestHandler with the amount and data', async function () {

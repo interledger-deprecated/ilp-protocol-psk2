@@ -96,7 +96,7 @@
 <span class="hljs-comment">// Give these two values to a sender to enable them to send payments to this Receiver</span>
 </code></pre>
 				<h3 id="sending-a-request">Sending a Request</h3>
-				<p>Uses <a href="https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk"><code>sendSingleChunk</code></a> and <a href="https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#quotedestinationamount"><code>quoteDestinationAmount</code></a>.</p>
+				<p>Uses <a href="https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendrequest"><code>sendRequest</code></a>.</p>
 				<pre><code class="lang-js"><span class="hljs-keyword">const</span> { sendRequest } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'ilp-protocol-psk2'</span>)
 
 <span class="hljs-comment">// These values must be communicated beforehand for the sender to send a payment</span>
@@ -115,6 +115,7 @@
 }
 </code></pre>
 				<h3 id="sending-an-unfulfillable-request-or-quote">Sending an Unfulfillable Request or Quote</h3>
+				<p>Uses <a href="https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendrequest"><code>sendRequest</code></a>.</p>
 				<pre><code class="lang-js"><span class="hljs-keyword">const</span> { sendRequest } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'ilp-protocol-psk2'</span>)
 <span class="hljs-keyword">const</span> { randomBytes } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'crypto'</span>)
 

@@ -68,6 +68,24 @@ describe('Sender', function () {
       assert.equal((result as sender.PskResponse).destinationAmount.toString(10), '5')
     })
 
+    it('should send an unfulfillable request that is rejected by the receiver', async function () {
+      const receiver = await createReceiver({
+        plugin: this.plugin,
+        requestHandler: (params: RequestHandlerParams) => { params.accept(Buffer.from('thanks!')) }
+      })
+      const { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
+
+      const result = await sender.sendRequest(this.plugin, {
+        destinationAccount,
+        sharedSecret,
+        sourceAmount: '10',
+        unfulfillableCondition: Buffer.alloc(32, 0)
+      })
+      assert.equal(result.fulfilled, false)
+      assert.equal(result.data.toString('utf8'), '')
+      assert.equal(result.destinationAmount.toString(10), '5')
+    })
+
     it('should return the data the receiver passes back when rejecting the packet', async function () {
       const receiver = await createReceiver({
         plugin: this.plugin,

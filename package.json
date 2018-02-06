@@ -58,6 +58,7 @@
     "chai": "^4.1.2",
     "codecov": "^3.0.0",
     "gh-pages": "^1.1.0",
+    "ilp-plugin-btp": "^1.1.6",
     "mocha": "^4.1.0",
     "mocha-typescript": "^1.1.12",
     "mock-require": "^2.0.2",

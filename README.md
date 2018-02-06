@@ -41,6 +41,8 @@ const { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
 // Give these two values to a sender to enable them to send payments to this Receiver
 ```
 
+Try it out by running the [example script](./example.js).
+
 ### Sending a Request
 
 Uses [`sendRequest`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendrequest).
@@ -64,6 +66,8 @@ if (fulfilled) {
 }
 ```
 
+Try it out by running the [example script](./example.js).
+
 ### Sending an Unfulfillable Request or Quote
 
 Uses [`sendRequest`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendrequest).
@@ -83,3 +87,5 @@ const { destinationAmount } = await sendRequest(myLedgerPlugin, {
 })
 console.log(`Path exchange rate is: ${destinationAmount.dividedBy(1000)}`
 ```
+
+Try it out by running the [example script](./example.js).

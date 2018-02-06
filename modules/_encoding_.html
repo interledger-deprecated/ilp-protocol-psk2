@@ -71,8 +71,15 @@
 				<section class="tsd-panel tsd-index-panel">
 					<div class="tsd-index-content">
 						<section class="tsd-index-section ">
+							<h3>Enumerations</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-enum tsd-parent-kind-external-module"><a href="../enums/_encoding_.type.html" class="tsd-kind-icon">Type</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section ">
 							<h3>Interfaces</h3>
 							<ul class="tsd-index-list">
+								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_encoding_.legacypskpacket.html" class="tsd-kind-icon">Legacy<wbr>Psk<wbr>Packet</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_encoding_.pskpacket.html" class="tsd-kind-icon">Psk<wbr>Packet</a></li>
 							</ul>
 						</section>
@@ -81,10 +88,12 @@
 							<ul class="tsd-index-list">
 								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_encoding_.html#bignumbertohighlow" class="tsd-kind-icon">big<wbr>Number<wbr>ToHigh<wbr>Low</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_encoding_.html#decrypt" class="tsd-kind-icon">decrypt</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_encoding_.html#deserializelegacypskpacket" class="tsd-kind-icon">deserialize<wbr>Legacy<wbr>Psk<wbr>Packet</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_encoding_.html#deserializepskpacket" class="tsd-kind-icon">deserialize<wbr>Psk<wbr>Packet</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_encoding_.html#encrypt" class="tsd-kind-icon">encrypt</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_encoding_.html#highlowtobignumber" class="tsd-kind-icon">high<wbr>Low<wbr>ToBig<wbr>Number</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_encoding_.html#hmac" class="tsd-kind-icon">hmac</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_encoding_.html#serializelegacypskpacket" class="tsd-kind-icon">serialize<wbr>Legacy<wbr>Psk<wbr>Packet</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_encoding_.html#serializepskpacket" class="tsd-kind-icon">serialize<wbr>Psk<wbr>Packet</a></li>
 							</ul>
 						</section>
@@ -103,7 +112,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L114">encoding.ts:114</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L163">encoding.ts:163</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -126,7 +135,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L86">encoding.ts:86</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L135">encoding.ts:135</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -143,21 +152,21 @@
 					</ul>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module">
-					<a name="deserializepskpacket" class="tsd-anchor"></a>
-					<h3>deserialize<wbr>Psk<wbr>Packet</h3>
+					<a name="deserializelegacypskpacket" class="tsd-anchor"></a>
+					<h3>deserialize<wbr>Legacy<wbr>Psk<wbr>Packet</h3>
 					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module">
-						<li class="tsd-signature tsd-kind-icon">deserialize<wbr>Psk<wbr>Packet<span class="tsd-signature-symbol">(</span>sharedSecret<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span>, ciphertext<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../interfaces/_encoding_.pskpacket.html" class="tsd-signature-type">PskPacket</a></li>
+						<li class="tsd-signature tsd-kind-icon">deserialize<wbr>Legacy<wbr>Psk<wbr>Packet<span class="tsd-signature-symbol">(</span>sharedSecret<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span>, ciphertext<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../interfaces/_encoding_.legacypskpacket.html" class="tsd-signature-type">LegacyPskPacket</a></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L56">encoding.ts:56</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L105">encoding.ts:105</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
 								<div class="lead">
-									<p>Decrypt and deserialize a PSK2 packet.</p>
+									<p>Decrypt and deserialize a Legacy PSK2 packet.</p>
 								</div>
 							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -167,6 +176,32 @@
 								</li>
 								<li>
 									<h5>ciphertext: <span class="tsd-signature-type">Buffer</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="../interfaces/_encoding_.legacypskpacket.html" class="tsd-signature-type">LegacyPskPacket</a></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module">
+					<a name="deserializepskpacket" class="tsd-anchor"></a>
+					<h3>deserialize<wbr>Psk<wbr>Packet</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module">
+						<li class="tsd-signature tsd-kind-icon">deserialize<wbr>Psk<wbr>Packet<span class="tsd-signature-symbol">(</span>sharedSecret<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span>, buffer<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../interfaces/_encoding_.pskpacket.html" class="tsd-signature-type">PskPacket</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L51">encoding.ts:51</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>sharedSecret: <span class="tsd-signature-type">Buffer</span></h5>
+								</li>
+								<li>
+									<h5>buffer: <span class="tsd-signature-type">Buffer</span></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <a href="../interfaces/_encoding_.pskpacket.html" class="tsd-signature-type">PskPacket</a></h4>
@@ -183,7 +218,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L70">encoding.ts:70</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L119">encoding.ts:119</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -209,7 +244,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L108">encoding.ts:108</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L157">encoding.ts:157</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -232,7 +267,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L101">encoding.ts:101</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L150">encoding.ts:150</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -249,6 +284,38 @@
 					</ul>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module">
+					<a name="serializelegacypskpacket" class="tsd-anchor"></a>
+					<h3>serialize<wbr>Legacy<wbr>Psk<wbr>Packet</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module">
+						<li class="tsd-signature tsd-kind-icon">serialize<wbr>Legacy<wbr>Psk<wbr>Packet<span class="tsd-signature-symbol">(</span>sharedSecret<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span>, pskPacket<span class="tsd-signature-symbol">: </span><a href="../interfaces/_encoding_.legacypskpacket.html" class="tsd-signature-type">LegacyPskPacket</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L70">encoding.ts:70</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Serialize and encrypt a Legacy PSK2 packet.
+									The result may be sent as the <code>data</code> in an <code>IlpPrepare</code>, <code>IlpFulfill</code>, or <code>IlpReject</code> packet.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>sharedSecret: <span class="tsd-signature-type">Buffer</span></h5>
+								</li>
+								<li>
+									<h5>pskPacket: <a href="../interfaces/_encoding_.legacypskpacket.html" class="tsd-signature-type">LegacyPskPacket</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Buffer</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module">
 					<a name="serializepskpacket" class="tsd-anchor"></a>
 					<h3>serialize<wbr>Psk<wbr>Packet</h3>
 					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module">
@@ -258,15 +325,9 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L21">encoding.ts:21</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L30">encoding.ts:30</a></li>
 								</ul>
 							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Serialize and encrypt a PSK2 packet.
-									The result may be sent as the <code>data</code> in an <code>IlpPrepare</code>, <code>IlpFulfill</code>, or <code>IlpReject</code> packet.</p>
-								</div>
-							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
@@ -310,6 +371,12 @@
 			</nav>
 			<nav class="tsd-navigation secondary menu-sticky">
 				<ul class="before-current">
+					<li class=" tsd-kind-enum tsd-parent-kind-external-module">
+						<a href="../enums/_encoding_.type.html" class="tsd-kind-icon">Type</a>
+					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+						<a href="../interfaces/_encoding_.legacypskpacket.html" class="tsd-kind-icon">Legacy<wbr>Psk<wbr>Packet</a>
+					</li>
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="../interfaces/_encoding_.pskpacket.html" class="tsd-kind-icon">Psk<wbr>Packet</a>
 					</li>
@@ -318,6 +385,9 @@
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
 						<a href="_encoding_.html#decrypt" class="tsd-kind-icon">decrypt</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="_encoding_.html#deserializelegacypskpacket" class="tsd-kind-icon">deserialize<wbr>Legacy<wbr>Psk<wbr>Packet</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module">
 						<a href="_encoding_.html#deserializepskpacket" class="tsd-kind-icon">deserialize<wbr>Psk<wbr>Packet</a>
@@ -330,6 +400,9 @@
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
 						<a href="_encoding_.html#hmac" class="tsd-kind-icon">hmac</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="_encoding_.html#serializelegacypskpacket" class="tsd-kind-icon">serialize<wbr>Legacy<wbr>Psk<wbr>Packet</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module">
 						<a href="_encoding_.html#serializepskpacket" class="tsd-kind-icon">serialize<wbr>Psk<wbr>Packet</a>

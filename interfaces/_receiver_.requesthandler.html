@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>PaymentReceived | ilp-protocol-psk2</title>
+	<title>RequestHandler | ilp-protocol-psk2</title>
 	<meta name="description" content="">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
@@ -59,82 +59,59 @@
 					<a href="../modules/_receiver_.html">&quot;receiver&quot;</a>
 				</li>
 				<li>
-					<a href="_receiver_.paymentreceived.html">PaymentReceived</a>
+					<a href="_receiver_.requesthandler.html">RequestHandler</a>
 				</li>
 			</ul>
-			<h1>Interface PaymentReceived</h1>
+			<h1>Interface RequestHandler</h1>
 		</div>
 	</div>
 </header>
 <div class="container container-main">
 	<div class="row">
 		<div class="col-8 col-content">
+			<section class="tsd-panel tsd-comment">
+				<div class="tsd-comment tsd-typography">
+					<div class="lead">
+						<p>Review callback that will be called every time the Receiver receives an incoming packet.</p>
+					</div>
+					<p>The RequestHandler can call <a href="_receiver_.requesthandlerparams.html#accept"><code>accept</code></a> to fulfill the packet or <a href="_receiver_.requesthandlerparams.html#reject"><code>reject</code></a> to reject it.</p>
+				</div>
+			</section>
 			<section class="tsd-panel tsd-hierarchy">
 				<h3>Hierarchy</h3>
 				<ul class="tsd-hierarchy">
 					<li>
-						<span class="target">PaymentReceived</span>
+						<span class="target">RequestHandler</span>
 					</li>
 				</ul>
 			</section>
-			<section class="tsd-panel-group tsd-index-group">
-				<h2>Index</h2>
-				<section class="tsd-panel tsd-index-panel">
-					<div class="tsd-index-content">
-						<section class="tsd-index-section ">
-							<h3>Properties</h3>
-							<ul class="tsd-index-list">
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymentreceived.html#chunksfulfilled" class="tsd-kind-icon">chunks<wbr>Fulfilled</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymentreceived.html#expectedamount" class="tsd-kind-icon">expected<wbr>Amount</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymentreceived.html#id" class="tsd-kind-icon">id</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymentreceived.html#receivedamount" class="tsd-kind-icon">received<wbr>Amount</a></li>
+			<section class="tsd-panel">
+				<h3 class="tsd-before-signature">Callable</h3>
+				<ul class="tsd-signatures tsd-kind-interface tsd-parent-kind-external-module">
+					<li class="tsd-signature tsd-kind-icon">__call<span class="tsd-signature-symbol">(</span>params<span class="tsd-signature-symbol">: </span><a href="_receiver_.requesthandlerparams.html" class="tsd-signature-type">RequestHandlerParams</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span></li>
+				</ul>
+				<ul class="tsd-descriptions">
+					<li class="tsd-description">
+						<aside class="tsd-sources">
+							<ul>
+								<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L24">receiver.ts:24</a></li>
 							</ul>
-						</section>
-					</div>
-				</section>
-			</section>
-			<section class="tsd-panel-group tsd-member-group ">
-				<h2>Properties</h2>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="chunksfulfilled" class="tsd-anchor"></a>
-					<h3>chunks<wbr>Fulfilled</h3>
-					<div class="tsd-signature tsd-kind-icon">chunks<wbr>Fulfilled<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L91">receiver.ts:91</a></li>
+						</aside>
+						<div class="tsd-comment tsd-typography">
+							<div class="lead">
+								<p>Review callback that will be called every time the Receiver receives an incoming packet.</p>
+							</div>
+							<p>The RequestHandler can call <a href="_receiver_.requesthandlerparams.html#accept"><code>accept</code></a> to fulfill the packet or <a href="_receiver_.requesthandlerparams.html#reject"><code>reject</code></a> to reject it.</p>
+						</div>
+						<h4 class="tsd-parameters-title">Parameters</h4>
+						<ul class="tsd-parameters">
+							<li>
+								<h5>params: <a href="_receiver_.requesthandlerparams.html" class="tsd-signature-type">RequestHandlerParams</a></h5>
+							</li>
 						</ul>
-					</aside>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="expectedamount" class="tsd-anchor"></a>
-					<h3>expected<wbr>Amount</h3>
-					<div class="tsd-signature tsd-kind-icon">expected<wbr>Amount<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L90">receiver.ts:90</a></li>
-						</ul>
-					</aside>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="id" class="tsd-anchor"></a>
-					<h3>id</h3>
-					<div class="tsd-signature tsd-kind-icon">id<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L88">receiver.ts:88</a></li>
-						</ul>
-					</aside>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="receivedamount" class="tsd-anchor"></a>
-					<h3>received<wbr>Amount</h3>
-					<div class="tsd-signature tsd-kind-icon">received<wbr>Amount<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L89">receiver.ts:89</a></li>
-						</ul>
-					</aside>
-				</section>
+						<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">any</span></h4>
+					</li>
+				</ul>
 			</section>
 		</div>
 		<div class="col-4 col-menu menu-sticky-wrap menu-highlight">
@@ -174,33 +151,19 @@
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="_receiver_.paymenthandlerparams.html" class="tsd-kind-icon">Payment<wbr>Handler<wbr>Params</a>
 					</li>
-				</ul>
-				<ul class="current">
-					<li class="current tsd-kind-interface tsd-parent-kind-external-module">
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="_receiver_.paymentreceived.html" class="tsd-kind-icon">Payment<wbr>Received</a>
-						<ul>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_receiver_.paymentreceived.html#chunksfulfilled" class="tsd-kind-icon">chunks<wbr>Fulfilled</a>
-							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_receiver_.paymentreceived.html#expectedamount" class="tsd-kind-icon">expected<wbr>Amount</a>
-							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_receiver_.paymentreceived.html#id" class="tsd-kind-icon">id</a>
-							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_receiver_.paymentreceived.html#receivedamount" class="tsd-kind-icon">received<wbr>Amount</a>
-							</li>
-						</ul>
 					</li>
-				</ul>
-				<ul class="after-current">
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="_receiver_.receiveropts.html" class="tsd-kind-icon">Receiver<wbr>Opts</a>
 					</li>
-					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+				</ul>
+				<ul class="current">
+					<li class="current tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="_receiver_.requesthandler.html" class="tsd-kind-icon">Request<wbr>Handler</a>
 					</li>
+				</ul>
+				<ul class="after-current">
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="_receiver_.requesthandlerparams.html" class="tsd-kind-icon">Request<wbr>Handler<wbr>Params</a>
 					</li>

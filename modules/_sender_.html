@@ -74,10 +74,13 @@
 							<h3>Interfaces</h3>
 							<ul class="tsd-index-list">
 								<li class="tsd-kind-interface tsd-parent-kind-external-module tsd-is-not-exported"><a href="../interfaces/_sender_.chunkedpaymentparams.html" class="tsd-kind-icon">Chunked<wbr>Payment<wbr>Params</a></li>
+								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_sender_.pskerror.html" class="tsd-kind-icon">Psk<wbr>Error</a></li>
+								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_sender_.pskresponse.html" class="tsd-kind-icon">Psk<wbr>Response</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_sender_.quotedestinationparams.html" class="tsd-kind-icon">Quote<wbr>Destination<wbr>Params</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_sender_.quoteresult.html" class="tsd-kind-icon">Quote<wbr>Result</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_sender_.quotesourceparams.html" class="tsd-kind-icon">Quote<wbr>Source<wbr>Params</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_sender_.senddestinationparams.html" class="tsd-kind-icon">Send<wbr>Destination<wbr>Params</a></li>
+								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_sender_.sendrequestparams.html" class="tsd-kind-icon">Send<wbr>Request<wbr>Params</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_sender_.sendresult.html" class="tsd-kind-icon">Send<wbr>Result</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_sender_.sendsinglechunkadvancedparams.html" class="tsd-kind-icon">Send<wbr>Single<wbr>Chunk<wbr>Advanced<wbr>Params</a></li>
 								<li class="tsd-kind-interface tsd-parent-kind-external-module"><a href="../interfaces/_sender_.sendsinglechunkparams.html" class="tsd-kind-icon">Send<wbr>Single<wbr>Chunk<wbr>Params</a></li>
@@ -91,17 +94,20 @@
 								<li class="tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported"><a href="_sender_.html#starting_transfer_amount" class="tsd-kind-icon">STARTING_<wbr>TRANSFER_<wbr>AMOUNT</a></li>
 								<li class="tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported"><a href="_sender_.html#transfer_decrease" class="tsd-kind-icon">TRANSFER_<wbr>DECREASE</a></li>
 								<li class="tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported"><a href="_sender_.html#transfer_increase" class="tsd-kind-icon">TRANSFER_<wbr>INCREASE</a></li>
-								<li class="tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported"><a href="_sender_.html#warneduseraboutchunkedpayments" class="tsd-kind-icon">warned<wbr>User<wbr>About<wbr>Chunked<wbr>Payments</a></li>
 							</ul>
 						</section>
 						<section class="tsd-index-section ">
 							<h3>Functions</h3>
 							<ul class="tsd-index-list">
+								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_sender_.html#isfulfill" class="tsd-kind-icon">is<wbr>Fulfill</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_sender_.html#ispskerror" class="tsd-kind-icon">is<wbr>Psk<wbr>Error</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_sender_.html#ispskresponse" class="tsd-kind-icon">is<wbr>Psk<wbr>Response</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_sender_.html#quote" class="tsd-kind-icon">quote</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_sender_.html#quotedestinationamount" class="tsd-kind-icon">quote<wbr>Destination<wbr>Amount</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_sender_.html#quotesourceamount" class="tsd-kind-icon">quote<wbr>Source<wbr>Amount</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_sender_.html#sendchunkedpayment" class="tsd-kind-icon">send<wbr>Chunked<wbr>Payment</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_sender_.html#senddestinationamount" class="tsd-kind-icon">send<wbr>Destination<wbr>Amount</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_sender_.html#sendrequest" class="tsd-kind-icon">send<wbr>Request</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_sender_.html#sendsinglechunk" class="tsd-kind-icon">send<wbr>Single<wbr>Chunk</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_sender_.html#sendsourceamount" class="tsd-kind-icon">send<wbr>Source<wbr>Amount</a></li>
 							</ul>
@@ -117,7 +123,7 @@
 					<div class="tsd-signature tsd-kind-icon">DEFAULT_<wbr>TRANSFER_<wbr>TIMEOUT<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">30000</span><span class="tsd-signature-symbol"> =&nbsp;30000</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/sender.ts#L11">sender.ts:11</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L11">sender.ts:11</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -127,7 +133,7 @@
 					<div class="tsd-signature tsd-kind-icon">STARTING_<wbr>TRANSFER_<wbr>AMOUNT<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">1000</span><span class="tsd-signature-symbol"> =&nbsp;1000</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/sender.ts#L12">sender.ts:12</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L12">sender.ts:12</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -137,7 +143,7 @@
 					<div class="tsd-signature tsd-kind-icon">TRANSFER_<wbr>DECREASE<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">0.5</span><span class="tsd-signature-symbol"> =&nbsp;0.5</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/sender.ts#L14">sender.ts:14</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L14">sender.ts:14</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -147,23 +153,82 @@
 					<div class="tsd-signature tsd-kind-icon">TRANSFER_<wbr>INCREASE<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">1.1</span><span class="tsd-signature-symbol"> =&nbsp;1.1</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/sender.ts#L13">sender.ts:13</a></li>
-						</ul>
-					</aside>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
-					<a name="warneduseraboutchunkedpayments" class="tsd-anchor"></a>
-					<h3>warned<wbr>User<wbr>About<wbr>Chunked<wbr>Payments</h3>
-					<div class="tsd-signature tsd-kind-icon">warned<wbr>User<wbr>About<wbr>Chunked<wbr>Payments<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol"> =&nbsp;false</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/sender.ts#L17">sender.ts:17</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L13">sender.ts:13</a></li>
 						</ul>
 					</aside>
 				</section>
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Functions</h2>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+					<a name="isfulfill" class="tsd-anchor"></a>
+					<h3>is<wbr>Fulfill</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">is<wbr>Fulfill<span class="tsd-signature-symbol">(</span>packet<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">IlpFulfill</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">IlpRejection</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L309">sender.ts:309</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>packet: <span class="tsd-signature-type">IlpFulfill</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">IlpRejection</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module">
+					<a name="ispskerror" class="tsd-anchor"></a>
+					<h3>is<wbr>Psk<wbr>Error</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module">
+						<li class="tsd-signature tsd-kind-icon">is<wbr>Psk<wbr>Error<span class="tsd-signature-symbol">(</span>result<span class="tsd-signature-symbol">: </span><a href="../interfaces/_sender_.pskresponse.html" class="tsd-signature-type">PskResponse</a><span class="tsd-signature-symbol"> | </span><a href="../interfaces/_sender_.pskerror.html" class="tsd-signature-type">PskError</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L87">sender.ts:87</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>result: <a href="../interfaces/_sender_.pskresponse.html" class="tsd-signature-type">PskResponse</a><span class="tsd-signature-symbol"> | </span><a href="../interfaces/_sender_.pskerror.html" class="tsd-signature-type">PskError</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module">
+					<a name="ispskresponse" class="tsd-anchor"></a>
+					<h3>is<wbr>Psk<wbr>Response</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module">
+						<li class="tsd-signature tsd-kind-icon">is<wbr>Psk<wbr>Response<span class="tsd-signature-symbol">(</span>result<span class="tsd-signature-symbol">: </span><a href="../interfaces/_sender_.pskresponse.html" class="tsd-signature-type">PskResponse</a><span class="tsd-signature-symbol"> | </span><a href="../interfaces/_sender_.pskerror.html" class="tsd-signature-type">PskError</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L83">sender.ts:83</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>result: <a href="../interfaces/_sender_.pskresponse.html" class="tsd-signature-type">PskResponse</a><span class="tsd-signature-symbol"> | </span><a href="../interfaces/_sender_.pskerror.html" class="tsd-signature-type">PskError</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
+						</li>
+					</ul>
+				</section>
 				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
 					<a name="quote" class="tsd-anchor"></a>
 					<h3>quote</h3>
@@ -174,7 +239,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/sender.ts#L199">sender.ts:199</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L485">sender.ts:485</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -212,16 +277,15 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/sender.ts#L182">sender.ts:182</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L467">sender.ts:467</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Get an approximate quote for how much the sender must send in order to deliver the given destination amount to the Receiver.</p>
-								</div>
-								<p>The value returned is non-binding so the exchange rate may change after the quote is returned.</p>
-								<p>Currently, this method assumes exchange rates are linear. The result may be incorrect if the path exchange rate varies by size of payment.</p>
-								<p><strong>Note:</strong> This method sends an unfulfillable test payment of <code>1000</code> source units to the Receiver to determine the path exchange rate.</p>
+								<dl class="tsd-comment-tags">
+									<dt>deprecated</dt>
+									<dd><p>Use sendRequest with an unfulfillable condition instead.</p>
+									</dd>
+								</dl>
 							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
@@ -246,15 +310,15 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/sender.ts#L156">sender.ts:156</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L446">sender.ts:446</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Get an approximate quote for how much will be delivered to the Receiver if the sender sends the given source amount.</p>
-								</div>
-								<p>The value returned is non-binding so the exchange rate may change after the quote is returned.</p>
-								<p><strong>Note:</strong> This method sends an unfulfillable test payment of the given amount to the Receiver to determine the path exchange rate.</p>
+								<dl class="tsd-comment-tags">
+									<dt>deprecated</dt>
+									<dd><p>Use sendRequest with an unfulfillable condition instead.</p>
+									</dd>
+								</dl>
 							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
@@ -279,7 +343,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/sender.ts#L481">sender.ts:481</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L704">sender.ts:704</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -305,15 +369,15 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/sender.ts#L467">sender.ts:467</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L689">sender.ts:689</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p><strong>Experimental</strong> method for sending a chunked payment with a fixed destination amount.</p>
-								</div>
-								<p>The sender will keep sending payment chunks until the receiver says they have gotten the given destination amount. <strong>This method SHOULD NOT be used with untrusted receivers.</strong></p>
-								<p><strong>Note</strong>: Chunked payments may be interrupted in the middle and the path exchange rate may change while a payment is being sent. <strong>This method should be used with EXTREME CAUTION.</strong></p>
+								<dl class="tsd-comment-tags">
+									<dt>deprecated</dt>
+									<dd><p>PSK2 no longer includes chunked payments. They will be implemented in a separate protocol / module.</p>
+									</dd>
+								</dl>
 							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
@@ -329,6 +393,76 @@
 					</ul>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module">
+					<a name="sendrequest" class="tsd-anchor"></a>
+					<h3>send<wbr>Request</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module">
+						<li class="tsd-signature tsd-kind-icon">send<wbr>Request<span class="tsd-signature-symbol">(</span>plugin<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">PluginV2</span>, params<span class="tsd-signature-symbol">: </span><a href="../interfaces/_sender_.sendrequestparams.html" class="tsd-signature-type">SendRequestParams</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_sender_.pskresponse.html" class="tsd-signature-type">PskResponse</a><span class="tsd-signature-symbol"> | </span><a href="../interfaces/_sender_.pskerror.html" class="tsd-signature-type">PskError</a><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L131">sender.ts:131</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Send a PSK2 request. This may be any of: a one-off payment, an unfulfillable packet for a quote, or one chunk of a streaming payment.</p>
+								</div>
+								<dl class="tsd-comment-tags">
+									<dt>example</dt>
+									<dd><p><caption>One-off payment</caption></p>
+										<pre><code class="lang-typescript">  <span class="hljs-keyword">import</span> { sendRequest } <span class="hljs-keyword">from</span> <span class="hljs-string">'ilp-protocol-psk2'</span>
+
+  <span class="hljs-comment">// These values must be communicated beforehand for the sender to send a payment</span>
+  <span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = <span class="hljs-keyword">await</span> getAddressAndSecretFromReceiver()
+
+  <span class="hljs-keyword">const</span> { destinationAmount, data } = <span class="hljs-keyword">await</span> sendRequest(myLedgerPlugin, {
+    destinationAccount,
+    sharedSecret,
+    destinationAmount: <span class="hljs-string">'1000'</span>,
+    data: Buffer.from(<span class="hljs-string">'hello'</span>, <span class="hljs-string">'utf8'</span>)
+  })
+
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Sent payment of: 1000. Receiver got: <span class="hljs-subst">${result.destinationAmount}</span>`</span>)
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Receiver responded: <span class="hljs-subst">${data.toString('utf8')}</span>`</span>)
+  <span class="hljs-comment">// Note the data encoding and content is up to the application</span>
+</code></pre>
+									</dd>
+									<dt>example</dt>
+									<dd><p><caption>Quote (unfulfillable test payment)</caption></p>
+										<pre><code class="lang-typescript">  <span class="hljs-keyword">import</span> { sendRequest } <span class="hljs-keyword">from</span> <span class="hljs-string">'ilp-protocol-psk2'</span>
+
+  <span class="hljs-comment">// These values must be communicated beforehand for the sender to send a payment</span>
+  <span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = <span class="hljs-keyword">await</span> getAddressAndSecretFromReceiver()
+
+  <span class="hljs-keyword">const</span> { destinationAmount, data } = <span class="hljs-keyword">await</span> sendRequest(myLedgerPlugin, {
+    destinationAccount,
+    sharedSecret,
+    destinationAmount: <span class="hljs-string">'1000'</span>,
+    unfulfillableCondition: <span class="hljs-string">'random'</span>
+  })
+  <span class="hljs-keyword">const</span> rate = destinationAmount.dividedBy(<span class="hljs-string">'1000'</span>)
+
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Path exchange rate is: <span class="hljs-subst">${rate}</span>`</span>)
+</code></pre>
+									</dd>
+								</dl>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>plugin: <span class="tsd-signature-type">PluginV2</span></h5>
+								</li>
+								<li>
+									<h5>params: <a href="../interfaces/_sender_.sendrequestparams.html" class="tsd-signature-type">SendRequestParams</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_sender_.pskresponse.html" class="tsd-signature-type">PskResponse</a><span class="tsd-signature-symbol"> | </span><a href="../interfaces/_sender_.pskerror.html" class="tsd-signature-type">PskError</a><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module">
 					<a name="sendsinglechunk" class="tsd-anchor"></a>
 					<h3>send<wbr>Single<wbr>Chunk</h3>
 					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module">
@@ -338,70 +472,13 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/sender.ts#L339">sender.ts:339</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L567">sender.ts:567</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Send a single payment chunk. This may be used for one-off payments or streaming payments.</p>
-								</div>
-								<p>If this method is used for streaming payments, the user must pass in the <a href="../interfaces/_sender_.sendsinglechunkadvancedparams.html"><code>SendSingleChunkAdvancedParams</code></a>.</p>
 								<dl class="tsd-comment-tags">
-									<dt>example</dt>
-									<dd><p><caption>One-off payment</caption></p>
-										<pre><code class="lang-typescript">  <span class="hljs-keyword">import</span> { sendSingleChunk, quoteDestinationAmount } <span class="hljs-keyword">from</span> <span class="hljs-string">'ilp-protocol-psk2'</span>
-
-  <span class="hljs-comment">// These values must be communicated beforehand for the sender to send a payment</span>
-  <span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = <span class="hljs-keyword">await</span> getAddressAndSecretFromReceiver()
-
-  <span class="hljs-keyword">const</span> { sourceAmount } = <span class="hljs-keyword">await</span> quoteDestinationAmount(myLedgerPlugin, {
-    destinationAccount,
-    sharedSecret,
-    destinationAmount: <span class="hljs-string">'1000'</span>
-  })
-
-  <span class="hljs-keyword">const</span> result = <span class="hljs-keyword">await</span> sendSingleChunk(myLedgerPlugin, {
-    destinationAccount,
-    sharedSecret,
-    sourceAmount,
-    minDestinationAmount: <span class="hljs-string">'999'</span>
-  })
-  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Sent payment of <span class="hljs-subst">${result.sourceAmount}</span>, receiver got <span class="hljs-subst">${result.destinationAmount}</span>`</span>)
-</code></pre>
-									</dd>
-									<dt>example</dt>
-									<dd><p><caption>Streaming payments</caption></p>
-										<pre><code class="lang-typescript">  <span class="hljs-keyword">import</span> { randomBytes } <span class="hljs-keyword">from</span> <span class="hljs-string">'crypto'</span>
-  <span class="hljs-keyword">import</span> { sendSingleChunk } <span class="hljs-keyword">from</span> <span class="hljs-string">'ilp-protocol-psk2'</span>
-
-  <span class="hljs-comment">// These values must be communicated beforehand for the sender to send a payment</span>
-  <span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = <span class="hljs-keyword">await</span> getAddressAndSecretFromReceiver()
-
-  <span class="hljs-keyword">const</span> id = randomBytes(<span class="hljs-number">16</span>)
-  <span class="hljs-keyword">let</span> sequence = <span class="hljs-number">0</span>
-  <span class="hljs-keyword">const</span> firstChunkResult = <span class="hljs-keyword">await</span> sendSingleChunk(myLedgerPlugin, {
-    destinationAccount,
-    sharedSecret,
-    sourceAmount,
-    minDestinationAmount: <span class="hljs-string">'0'</span>,
-    id,
-    sequence,
-    lastChunk: <span class="hljs-literal">false</span>
-  })
-
- <span class="hljs-comment">// Repeat as many times as desired, incrementing the sequence each time</span>
- <span class="hljs-comment">// Note that the path exchange rate can be determined by dividing the destination amount returned by the chunk amount sent</span>
-
-  <span class="hljs-keyword">const</span> lastChunkResult = <span class="hljs-keyword">await</span> sendSingleChunk(myLedgerPlugin, {
-    destinationAccount,
-    sharedSecret,
-    sourceAmount,
-    minDestinationAmount: <span class="hljs-string">'0'</span>,
-    id,
-    sequence,
-    lastChunk: <span class="hljs-literal">true</span>
-  })
-</code></pre>
+									<dt>deprecated</dt>
+									<dd><p>Use <a href="_sender_.html#sendrequest"><code>sendRequest</code></a> instead</p>
 									</dd>
 								</dl>
 							</div>
@@ -428,15 +505,15 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/sender.ts#L455">sender.ts:455</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L680">sender.ts:680</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p><strong>Experimental</strong> method for sending a chunked payment with a fixed source amount.</p>
-								</div>
-								<p>The sender will keep sending payment chunks until the given source amount has been sent.</p>
-								<p><strong>Note:</strong> Chunked payments may be interrupted in the middle, for example if the path runs out of liquidity. This method should be used with caution.</p>
+								<dl class="tsd-comment-tags">
+									<dt>deprecated</dt>
+									<dd><p>PSK2 no longer includes chunked payments. They will be implemented in a separate protocol / module.</p>
+									</dd>
+								</dl>
 							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
@@ -485,6 +562,12 @@
 						<a href="../interfaces/_sender_.chunkedpaymentparams.html" class="tsd-kind-icon">Chunked<wbr>Payment<wbr>Params</a>
 					</li>
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+						<a href="../interfaces/_sender_.pskerror.html" class="tsd-kind-icon">Psk<wbr>Error</a>
+					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+						<a href="../interfaces/_sender_.pskresponse.html" class="tsd-kind-icon">Psk<wbr>Response</a>
+					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="../interfaces/_sender_.quotedestinationparams.html" class="tsd-kind-icon">Quote<wbr>Destination<wbr>Params</a>
 					</li>
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
@@ -495,6 +578,9 @@
 					</li>
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="../interfaces/_sender_.senddestinationparams.html" class="tsd-kind-icon">Send<wbr>Destination<wbr>Params</a>
+					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+						<a href="../interfaces/_sender_.sendrequestparams.html" class="tsd-kind-icon">Send<wbr>Request<wbr>Params</a>
 					</li>
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="../interfaces/_sender_.sendresult.html" class="tsd-kind-icon">Send<wbr>Result</a>
@@ -520,8 +606,14 @@
 					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
 						<a href="_sender_.html#transfer_increase" class="tsd-kind-icon">TRANSFER_<wbr>INCREASE</a>
 					</li>
-					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="_sender_.html#warneduseraboutchunkedpayments" class="tsd-kind-icon">warned<wbr>User<wbr>About<wbr>Chunked<wbr>Payments</a>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+						<a href="_sender_.html#isfulfill" class="tsd-kind-icon">is<wbr>Fulfill</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="_sender_.html#ispskerror" class="tsd-kind-icon">is<wbr>Psk<wbr>Error</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="_sender_.html#ispskresponse" class="tsd-kind-icon">is<wbr>Psk<wbr>Response</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
 						<a href="_sender_.html#quote" class="tsd-kind-icon">quote</a>
@@ -537,6 +629,9 @@
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module">
 						<a href="_sender_.html#senddestinationamount" class="tsd-kind-icon">send<wbr>Destination<wbr>Amount</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="_sender_.html#sendrequest" class="tsd-kind-icon">send<wbr>Request</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module">
 						<a href="_sender_.html#sendsinglechunk" class="tsd-kind-icon">send<wbr>Single<wbr>Chunk</a>

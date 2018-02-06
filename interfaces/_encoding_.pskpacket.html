@@ -84,11 +84,9 @@
 						<section class="tsd-index-section ">
 							<h3>Properties</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_encoding_.pskpacket.html#applicationdata" class="tsd-kind-icon">application<wbr>Data</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_encoding_.pskpacket.html#chunkamount" class="tsd-kind-icon">chunk<wbr>Amount</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_encoding_.pskpacket.html#paymentamount" class="tsd-kind-icon">payment<wbr>Amount</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_encoding_.pskpacket.html#paymentid" class="tsd-kind-icon">payment<wbr>Id</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_encoding_.pskpacket.html#sequence" class="tsd-kind-icon">sequence</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_encoding_.pskpacket.html#amount" class="tsd-kind-icon">amount</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_encoding_.pskpacket.html#data" class="tsd-kind-icon">data</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_encoding_.pskpacket.html#requestid" class="tsd-kind-icon">request<wbr>Id</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_encoding_.pskpacket.html#type" class="tsd-kind-icon">type</a></li>
 							</ul>
 						</section>
@@ -98,62 +96,42 @@
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Properties</h2>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="applicationdata" class="tsd-anchor"></a>
-					<h3><span class="tsd-flag ts-flagOptional">Optional</span> application<wbr>Data</h3>
-					<div class="tsd-signature tsd-kind-icon">application<wbr>Data<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
+					<a name="amount" class="tsd-anchor"></a>
+					<h3>amount</h3>
+					<div class="tsd-signature tsd-kind-icon">amount<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">BigNumber</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L14">encoding.ts:14</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L26">encoding.ts:26</a></li>
 						</ul>
 					</aside>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="chunkamount" class="tsd-anchor"></a>
-					<h3>chunk<wbr>Amount</h3>
-					<div class="tsd-signature tsd-kind-icon">chunk<wbr>Amount<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">BigNumber</span></div>
+					<a name="data" class="tsd-anchor"></a>
+					<h3>data</h3>
+					<div class="tsd-signature tsd-kind-icon">data<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L13">encoding.ts:13</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L27">encoding.ts:27</a></li>
 						</ul>
 					</aside>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="paymentamount" class="tsd-anchor"></a>
-					<h3>payment<wbr>Amount</h3>
-					<div class="tsd-signature tsd-kind-icon">payment<wbr>Amount<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">BigNumber</span></div>
+					<a name="requestid" class="tsd-anchor"></a>
+					<h3>request<wbr>Id</h3>
+					<div class="tsd-signature tsd-kind-icon">request<wbr>Id<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L12">encoding.ts:12</a></li>
-						</ul>
-					</aside>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="paymentid" class="tsd-anchor"></a>
-					<h3>payment<wbr>Id</h3>
-					<div class="tsd-signature tsd-kind-icon">payment<wbr>Id<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L10">encoding.ts:10</a></li>
-						</ul>
-					</aside>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="sequence" class="tsd-anchor"></a>
-					<h3>sequence</h3>
-					<div class="tsd-signature tsd-kind-icon">sequence<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L11">encoding.ts:11</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L25">encoding.ts:25</a></li>
 						</ul>
 					</aside>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
 					<a name="type" class="tsd-anchor"></a>
 					<h3>type</h3>
-					<div class="tsd-signature tsd-kind-icon">type<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+					<div class="tsd-signature tsd-kind-icon">type<span class="tsd-signature-symbol">:</span> <a href="../enums/_encoding_.type.html" class="tsd-signature-type">Type</a></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/encoding.ts#L9">encoding.ts:9</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L24">encoding.ts:24</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -187,25 +165,25 @@
 			</nav>
 			<nav class="tsd-navigation secondary menu-sticky">
 				<ul class="before-current">
+					<li class=" tsd-kind-enum tsd-parent-kind-external-module">
+						<a href="../enums/_encoding_.type.html" class="tsd-kind-icon">Type</a>
+					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+						<a href="_encoding_.legacypskpacket.html" class="tsd-kind-icon">Legacy<wbr>Psk<wbr>Packet</a>
+					</li>
 				</ul>
 				<ul class="current">
 					<li class="current tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="_encoding_.pskpacket.html" class="tsd-kind-icon">Psk<wbr>Packet</a>
 						<ul>
 							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_encoding_.pskpacket.html#applicationdata" class="tsd-kind-icon">application<wbr>Data</a>
+								<a href="_encoding_.pskpacket.html#amount" class="tsd-kind-icon">amount</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_encoding_.pskpacket.html#chunkamount" class="tsd-kind-icon">chunk<wbr>Amount</a>
+								<a href="_encoding_.pskpacket.html#data" class="tsd-kind-icon">data</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_encoding_.pskpacket.html#paymentamount" class="tsd-kind-icon">payment<wbr>Amount</a>
-							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_encoding_.pskpacket.html#paymentid" class="tsd-kind-icon">payment<wbr>Id</a>
-							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_encoding_.pskpacket.html#sequence" class="tsd-kind-icon">sequence</a>
+								<a href="_encoding_.pskpacket.html#requestid" class="tsd-kind-icon">request<wbr>Id</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-interface">
 								<a href="_encoding_.pskpacket.html#type" class="tsd-kind-icon">type</a>
@@ -221,6 +199,9 @@
 						<a href="../modules/_encoding_.html#decrypt" class="tsd-kind-icon">decrypt</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="../modules/_encoding_.html#deserializelegacypskpacket" class="tsd-kind-icon">deserialize<wbr>Legacy<wbr>Psk<wbr>Packet</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
 						<a href="../modules/_encoding_.html#deserializepskpacket" class="tsd-kind-icon">deserialize<wbr>Psk<wbr>Packet</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
@@ -231,6 +212,9 @@
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
 						<a href="../modules/_encoding_.html#hmac" class="tsd-kind-icon">hmac</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="../modules/_encoding_.html#serializelegacypskpacket" class="tsd-kind-icon">serialize<wbr>Legacy<wbr>Psk<wbr>Packet</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module">
 						<a href="../modules/_encoding_.html#serializepskpacket" class="tsd-kind-icon">serialize<wbr>Psk<wbr>Packet</a>

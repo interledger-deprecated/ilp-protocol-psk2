@@ -104,21 +104,26 @@
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><a href="_receiver_.receiver.html#paymenthandler" class="tsd-kind-icon">payment<wbr>Handler</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><a href="_receiver_.receiver.html#payments" class="tsd-kind-icon">payments</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><a href="_receiver_.receiver.html#plugin" class="tsd-kind-icon">plugin</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><a href="_receiver_.receiver.html#receiverid" class="tsd-kind-icon">receiver<wbr>Id</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><a href="_receiver_.receiver.html#requesthandler" class="tsd-kind-icon">request<wbr>Handler</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><a href="_receiver_.receiver.html#secret" class="tsd-kind-icon">secret</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><a href="_receiver_.receiver.html#usingrequesthandlerapi" class="tsd-kind-icon">using<wbr>Request<wbr>Handler<wbr>Api</a></li>
 							</ul>
 						</section>
 						<section class="tsd-index-section ">
 							<h3>Methods</h3>
 							<ul class="tsd-index-list">
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-protected"><a href="_receiver_.receiver.html#callrequesthandler" class="tsd-kind-icon">call<wbr>Request<wbr>Handler</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_receiver_.receiver.html#connect" class="tsd-kind-icon">connect</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-protected"><a href="_receiver_.receiver.html#defaultpaymenthandler" class="tsd-kind-icon">default<wbr>Payment<wbr>Handler</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-protected"><a href="_receiver_.receiver.html#defaultrequesthandler" class="tsd-kind-icon">default<wbr>Request<wbr>Handler</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_receiver_.receiver.html#deregisterpaymenthandler" class="tsd-kind-icon">deregister<wbr>Payment<wbr>Handler</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_receiver_.receiver.html#deregisterrequesthandler" class="tsd-kind-icon">deregister<wbr>Request<wbr>Handler</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_receiver_.receiver.html#disconnect" class="tsd-kind-icon">disconnect</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_receiver_.receiver.html#generateaddressandsecret" class="tsd-kind-icon">generate<wbr>Address<wbr>And<wbr>Secret</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-protected"><a href="_receiver_.receiver.html#handledata" class="tsd-kind-icon">handle<wbr>Data</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_receiver_.receiver.html#isconnected" class="tsd-kind-icon">is<wbr>Connected</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_receiver_.receiver.html#registerpaymenthandler" class="tsd-kind-icon">register<wbr>Payment<wbr>Handler</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_receiver_.receiver.html#registerrequesthandler" class="tsd-kind-icon">register<wbr>Request<wbr>Handler</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-protected"><a href="_receiver_.receiver.html#reject" class="tsd-kind-icon">reject</a></li>
 							</ul>
 						</section>
@@ -137,7 +142,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L97">receiver.ts:97</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L123">receiver.ts:123</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -162,7 +167,7 @@
 					<div class="tsd-signature tsd-kind-icon">address<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L95">receiver.ts:95</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L120">receiver.ts:120</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -172,7 +177,7 @@
 					<div class="tsd-signature tsd-kind-icon">connected<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L97">receiver.ts:97</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L122">receiver.ts:122</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -182,7 +187,7 @@
 					<div class="tsd-signature tsd-kind-icon">payment<wbr>Handler<span class="tsd-signature-symbol">:</span> <a href="../interfaces/_receiver_.paymenthandler.html" class="tsd-signature-type">PaymentHandler</a></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L94">receiver.ts:94</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L119">receiver.ts:119</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -192,7 +197,7 @@
 					<div class="tsd-signature tsd-kind-icon">payments<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Object</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L96">receiver.ts:96</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L121">receiver.ts:121</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -202,17 +207,17 @@
 					<div class="tsd-signature tsd-kind-icon">plugin<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">PluginV2</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L91">receiver.ts:91</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L116">receiver.ts:116</a></li>
 						</ul>
 					</aside>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-protected">
-					<a name="receiverid" class="tsd-anchor"></a>
-					<h3><span class="tsd-flag ts-flagProtected">Protected</span> receiver<wbr>Id</h3>
-					<div class="tsd-signature tsd-kind-icon">receiver<wbr>Id<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+					<a name="requesthandler" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagProtected">Protected</span> request<wbr>Handler</h3>
+					<div class="tsd-signature tsd-kind-icon">request<wbr>Handler<span class="tsd-signature-symbol">:</span> <a href="../interfaces/_receiver_.requesthandler.html" class="tsd-signature-type">RequestHandler</a></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L93">receiver.ts:93</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L118">receiver.ts:118</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -222,13 +227,55 @@
 					<div class="tsd-signature tsd-kind-icon">secret<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L92">receiver.ts:92</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L117">receiver.ts:117</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-protected">
+					<a name="usingrequesthandlerapi" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagProtected">Protected</span> using<wbr>Request<wbr>Handler<wbr>Api</h3>
+					<div class="tsd-signature tsd-kind-icon">using<wbr>Request<wbr>Handler<wbr>Api<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L123">receiver.ts:123</a></li>
 						</ul>
 					</aside>
 				</section>
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Methods</h2>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-protected">
+					<a name="callrequesthandler" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagProtected">Protected</span> call<wbr>Request<wbr>Handler</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-protected">
+						<li class="tsd-signature tsd-kind-icon">call<wbr>Request<wbr>Handler<span class="tsd-signature-symbol">(</span>requestId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span>, amount<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, data<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span>, keyId<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">object</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L251">receiver.ts:251</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>requestId: <span class="tsd-signature-type">number</span></h5>
+								</li>
+								<li>
+									<h5>amount: <span class="tsd-signature-type">string</span></h5>
+								</li>
+								<li>
+									<h5>data: <span class="tsd-signature-type">Buffer</span></h5>
+								</li>
+								<li>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> keyId: <span class="tsd-signature-type">Buffer</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">object</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
 					<a name="connect" class="tsd-anchor"></a>
 					<h3>connect</h3>
@@ -239,7 +286,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L114">receiver.ts:114</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L141">receiver.ts:141</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -261,13 +308,36 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L178">receiver.ts:178</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L232">receiver.ts:232</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
 									<h5>params: <a href="../interfaces/_receiver_.paymenthandlerparams.html" class="tsd-signature-type">PaymentHandlerParams</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-protected">
+					<a name="defaultrequesthandler" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagProtected">Protected</span> default<wbr>Request<wbr>Handler</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-protected">
+						<li class="tsd-signature tsd-kind-icon">default<wbr>Request<wbr>Handler<span class="tsd-signature-symbol">(</span>params<span class="tsd-signature-symbol">: </span><a href="../interfaces/_receiver_.requesthandlerparams.html" class="tsd-signature-type">RequestHandlerParams</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L237">receiver.ts:237</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>params: <a href="../interfaces/_receiver_.requesthandlerparams.html" class="tsd-signature-type">RequestHandlerParams</a></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
@@ -284,12 +354,36 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L158">receiver.ts:158</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L208">receiver.ts:208</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<dl class="tsd-comment-tags">
+									<dt>deprecated.</dt>
+									<dd><p>Use RequestHandlers instead</p>
+									</dd>
+								</dl>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="deregisterrequesthandler" class="tsd-anchor"></a>
+					<h3>deregister<wbr>Request<wbr>Handler</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">deregister<wbr>Request<wbr>Handler<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L187">receiver.ts:187</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
 								<div class="lead">
-									<p>Remove the payment handler callback.</p>
+									<p>Remove the handler callback.</p>
 								</div>
 							</div>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
@@ -306,7 +400,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L127">receiver.ts:127</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L154">receiver.ts:154</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -322,13 +416,13 @@
 					<a name="generateaddressandsecret" class="tsd-anchor"></a>
 					<h3>generate<wbr>Address<wbr>And<wbr>Secret</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">generate<wbr>Address<wbr>And<wbr>Secret<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">object</span></li>
+						<li class="tsd-signature tsd-kind-icon">generate<wbr>Address<wbr>And<wbr>Secret<span class="tsd-signature-symbol">(</span>keyId<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">object</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L169">receiver.ts:169</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L221">receiver.ts:221</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -338,6 +432,15 @@
 								<p>The Receiver must be connected before this method can be called.</p>
 								<p><strong>Note:</strong> A single shared secret MUST NOT be given to more than one sender.</p>
 							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> keyId: <span class="tsd-signature-type">Buffer</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>Additional segment that will be appended to the destinationAccount and can be used to correlate payments. This is authenticated but <strong>unencrypted</strong> so the entire Interledger will be able to see this value.</p>
+									</div>
+								</li>
+							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">object</span></h4>
 							<ul class="tsd-parameters">
 								<li class="tsd-parameter">
@@ -360,7 +463,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L193">receiver.ts:193</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L304">receiver.ts:304</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -383,7 +486,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L138">receiver.ts:138</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L165">receiver.ts:165</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -405,19 +508,49 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L148">receiver.ts:148</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L194">receiver.ts:194</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Register a callback that will be called every time a new payment is received.</p>
-								</div>
-								<p>The user must call <code>accept</code> or <code>acceptSingleChunk</code> to make the Receiver fulfill the payment.</p>
+								<dl class="tsd-comment-tags">
+									<dt>deprecated.</dt>
+									<dd><p>Switch to <a href="_receiver_.receiver.html#registerrequesthandler"><code>registerRequestHandler</code></a> instead</p>
+									</dd>
+								</dl>
 							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
 									<h5>handler: <a href="../interfaces/_receiver_.paymenthandler.html" class="tsd-signature-type">PaymentHandler</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="registerrequesthandler" class="tsd-anchor"></a>
+					<h3>register<wbr>Request<wbr>Handler</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">register<wbr>Request<wbr>Handler<span class="tsd-signature-symbol">(</span>handler<span class="tsd-signature-symbol">: </span><a href="../interfaces/_receiver_.requesthandler.html" class="tsd-signature-type">RequestHandler</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L175">receiver.ts:175</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Register a callback that will be called each time a packet is received.</p>
+								</div>
+								<p>The user must call <code>accept</code> to make the Receiver fulfill the packet.</p>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>handler: <a href="../interfaces/_receiver_.requesthandler.html" class="tsd-signature-type">RequestHandler</a></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
@@ -434,7 +567,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/9c09d74/src/receiver.ts#L183">receiver.ts:183</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L242">receiver.ts:242</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -507,10 +640,16 @@
 								<a href="_receiver_.receiver.html#plugin" class="tsd-kind-icon">plugin</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-protected">
-								<a href="_receiver_.receiver.html#receiverid" class="tsd-kind-icon">receiver<wbr>Id</a>
+								<a href="_receiver_.receiver.html#requesthandler" class="tsd-kind-icon">request<wbr>Handler</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-protected">
 								<a href="_receiver_.receiver.html#secret" class="tsd-kind-icon">secret</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-protected">
+								<a href="_receiver_.receiver.html#usingrequesthandlerapi" class="tsd-kind-icon">using<wbr>Request<wbr>Handler<wbr>Api</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-protected">
+								<a href="_receiver_.receiver.html#callrequesthandler" class="tsd-kind-icon">call<wbr>Request<wbr>Handler</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="_receiver_.receiver.html#connect" class="tsd-kind-icon">connect</a>
@@ -518,8 +657,14 @@
 							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-protected">
 								<a href="_receiver_.receiver.html#defaultpaymenthandler" class="tsd-kind-icon">default<wbr>Payment<wbr>Handler</a>
 							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-protected">
+								<a href="_receiver_.receiver.html#defaultrequesthandler" class="tsd-kind-icon">default<wbr>Request<wbr>Handler</a>
+							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="_receiver_.receiver.html#deregisterpaymenthandler" class="tsd-kind-icon">deregister<wbr>Payment<wbr>Handler</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="_receiver_.receiver.html#deregisterrequesthandler" class="tsd-kind-icon">deregister<wbr>Request<wbr>Handler</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="_receiver_.receiver.html#disconnect" class="tsd-kind-icon">disconnect</a>
@@ -535,6 +680,9 @@
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="_receiver_.receiver.html#registerpaymenthandler" class="tsd-kind-icon">register<wbr>Payment<wbr>Handler</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="_receiver_.receiver.html#registerrequesthandler" class="tsd-kind-icon">register<wbr>Request<wbr>Handler</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-protected">
 								<a href="_receiver_.receiver.html#reject" class="tsd-kind-icon">reject</a>
@@ -555,14 +703,14 @@
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="../interfaces/_receiver_.receiveropts.html" class="tsd-kind-icon">Receiver<wbr>Opts</a>
 					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+						<a href="../interfaces/_receiver_.requesthandler.html" class="tsd-kind-icon">Request<wbr>Handler</a>
+					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+						<a href="../interfaces/_receiver_.requesthandlerparams.html" class="tsd-kind-icon">Request<wbr>Handler<wbr>Params</a>
+					</li>
 					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
 						<a href="../modules/_receiver_.html#psk_generation_string" class="tsd-kind-icon">PSK_<wbr>GENERATION_<wbr>STRING</a>
-					</li>
-					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="../modules/_receiver_.html#receiver_id_length" class="tsd-kind-icon">RECEIVER_<wbr>ID_<wbr>LENGTH</a>
-					</li>
-					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="../modules/_receiver_.html#receiver_id_string" class="tsd-kind-icon">RECEIVER_<wbr>ID_<wbr>STRING</a>
 					</li>
 					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
 						<a href="../modules/_receiver_.html#shared_secret_length" class="tsd-kind-icon">SHARED_<wbr>SECRET_<wbr>LENGTH</a>
@@ -583,13 +731,7 @@
 						<a href="../modules/_receiver_.html#generatesharedsecret" class="tsd-kind-icon">generate<wbr>Shared<wbr>Secret</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="../modules/_receiver_.html#getreceiverid" class="tsd-kind-icon">get<wbr>Receiver<wbr>Id</a>
-					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
 						<a href="../modules/_receiver_.html#hmac" class="tsd-kind-icon">hmac</a>
-					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="../modules/_receiver_.html#parseaccount" class="tsd-kind-icon">parse<wbr>Account</a>
 					</li>
 				</ul>
 			</nav>

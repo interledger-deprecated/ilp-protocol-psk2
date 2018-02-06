@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>QuoteSourceParams | ilp-protocol-psk2</title>
+	<title>PskResponse | ilp-protocol-psk2</title>
 	<meta name="description" content="">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
@@ -59,10 +59,10 @@
 					<a href="../modules/_sender_.html">&quot;sender&quot;</a>
 				</li>
 				<li>
-					<a href="_sender_.quotesourceparams.html">QuoteSourceParams</a>
+					<a href="_sender_.pskresponse.html">PskResponse</a>
 				</li>
 			</ul>
-			<h1>Interface QuoteSourceParams</h1>
+			<h1>Interface PskResponse</h1>
 		</div>
 	</div>
 </header>
@@ -72,7 +72,7 @@
 			<section class="tsd-panel tsd-comment">
 				<div class="tsd-comment tsd-typography">
 					<div class="lead">
-						<p>Parameters for the <a href="../modules/_sender_.html#quotesourceamount"><code>quoteSourceAmount</code></a> method.</p>
+						<p>Successful response indicating the payment was sent</p>
 					</div>
 				</div>
 			</section>
@@ -80,7 +80,7 @@
 				<h3>Hierarchy</h3>
 				<ul class="tsd-hierarchy">
 					<li>
-						<span class="target">QuoteSourceParams</span>
+						<span class="target">PskResponse</span>
 					</li>
 				</ul>
 			</section>
@@ -91,10 +91,9 @@
 						<section class="tsd-index-section ">
 							<h3>Properties</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_sender_.quotesourceparams.html#destinationaccount" class="tsd-kind-icon">destination<wbr>Account</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_sender_.quotesourceparams.html#id" class="tsd-kind-icon">id</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_sender_.quotesourceparams.html#sharedsecret" class="tsd-kind-icon">shared<wbr>Secret</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_sender_.quotesourceparams.html#sourceamount" class="tsd-kind-icon">source<wbr>Amount</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_sender_.pskresponse.html#data" class="tsd-kind-icon">data</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_sender_.pskresponse.html#destinationamount" class="tsd-kind-icon">destination<wbr>Amount</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_sender_.pskresponse.html#fulfilled" class="tsd-kind-icon">fulfilled</a></li>
 							</ul>
 						</section>
 					</div>
@@ -103,64 +102,50 @@
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Properties</h2>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="destinationaccount" class="tsd-anchor"></a>
-					<h3>destination<wbr>Account</h3>
-					<div class="tsd-signature tsd-kind-icon">destination<wbr>Account<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+					<a name="data" class="tsd-anchor"></a>
+					<h3>data</h3>
+					<div class="tsd-signature tsd-kind-icon">data<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L324">sender.ts:324</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L56">sender.ts:56</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
 						<div class="lead">
-							<p>Destination account of the Receiver (generated with the <a href="../classes/_receiver_.receiver.html#generateaddressandsecret"><code>generateAddressAndSecret</code></a> method).</p>
+							<p>Authenticated response from the receiver.</p>
 						</div>
+						<p>If the PSK packet the receiver sends back is tampered with or otherwise not understandable, this will be set to an empty buffer.</p>
 					</div>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="id" class="tsd-anchor"></a>
-					<h3><span class="tsd-flag ts-flagOptional">Optional</span> id</h3>
-					<div class="tsd-signature tsd-kind-icon">id<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
+					<a name="destinationamount" class="tsd-anchor"></a>
+					<h3>destination<wbr>Amount</h3>
+					<div class="tsd-signature tsd-kind-icon">destination<wbr>Amount<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">BigNumber</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L326">sender.ts:326</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L50">sender.ts:50</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
 						<div class="lead">
-							<p>Optional ID that will be used as the PSK Payment ID. A random one will be used if none is provided.</p>
+							<p>Amount that the receiver says they received. Note: you must trust the receiver not to lie about this.</p>
 						</div>
+						<p>If the PSK packet the receiver sends back is tampered with or otherwise not understandable, this will be set to 0.</p>
 					</div>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="sharedsecret" class="tsd-anchor"></a>
-					<h3>shared<wbr>Secret</h3>
-					<div class="tsd-signature tsd-kind-icon">shared<wbr>Secret<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
+					<a name="fulfilled" class="tsd-anchor"></a>
+					<h3>fulfilled</h3>
+					<div class="tsd-signature tsd-kind-icon">fulfilled<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L322">sender.ts:322</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L43">sender.ts:43</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
 						<div class="lead">
-							<p>Shared secret from the Receiver (generated with the <a href="../classes/_receiver_.receiver.html#generateaddressandsecret"><code>generateAddressAndSecret</code></a> method).</p>
+							<p>Always true for PskResponses</p>
 						</div>
-					</div>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="sourceamount" class="tsd-anchor"></a>
-					<h3>source<wbr>Amount</h3>
-					<div class="tsd-signature tsd-kind-icon">source<wbr>Amount<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">BigNumber</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/sender.ts#L320">sender.ts:320</a></li>
-						</ul>
-					</aside>
-					<div class="tsd-comment tsd-typography">
-						<div class="lead">
-							<p>Integer amount indicating how much the sender would like to send.</p>
-						</div>
-						<p><strong>Note:</strong> The <code>quoteSourceAmount</code> method will send an unfulfillable test payment of this amount to the Receiver to determine the path exchange rate.</p>
 					</div>
 				</section>
 			</section>
@@ -199,36 +184,33 @@
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="_sender_.pskerror.html" class="tsd-kind-icon">Psk<wbr>Error</a>
 					</li>
-					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+				</ul>
+				<ul class="current">
+					<li class="current tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="_sender_.pskresponse.html" class="tsd-kind-icon">Psk<wbr>Response</a>
+						<ul>
+							<li class=" tsd-kind-property tsd-parent-kind-interface">
+								<a href="_sender_.pskresponse.html#data" class="tsd-kind-icon">data</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-interface">
+								<a href="_sender_.pskresponse.html#destinationamount" class="tsd-kind-icon">destination<wbr>Amount</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-interface">
+								<a href="_sender_.pskresponse.html#fulfilled" class="tsd-kind-icon">fulfilled</a>
+							</li>
+						</ul>
 					</li>
+				</ul>
+				<ul class="after-current">
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="_sender_.quotedestinationparams.html" class="tsd-kind-icon">Quote<wbr>Destination<wbr>Params</a>
 					</li>
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="_sender_.quoteresult.html" class="tsd-kind-icon">Quote<wbr>Result</a>
 					</li>
-				</ul>
-				<ul class="current">
-					<li class="current tsd-kind-interface tsd-parent-kind-external-module">
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="_sender_.quotesourceparams.html" class="tsd-kind-icon">Quote<wbr>Source<wbr>Params</a>
-						<ul>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_sender_.quotesourceparams.html#destinationaccount" class="tsd-kind-icon">destination<wbr>Account</a>
-							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_sender_.quotesourceparams.html#id" class="tsd-kind-icon">id</a>
-							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_sender_.quotesourceparams.html#sharedsecret" class="tsd-kind-icon">shared<wbr>Secret</a>
-							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_sender_.quotesourceparams.html#sourceamount" class="tsd-kind-icon">source<wbr>Amount</a>
-							</li>
-						</ul>
 					</li>
-				</ul>
-				<ul class="after-current">
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
 						<a href="_sender_.senddestinationparams.html" class="tsd-kind-icon">Send<wbr>Destination<wbr>Params</a>
 					</li>

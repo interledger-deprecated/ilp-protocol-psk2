@@ -66,18 +66,13 @@
 			<div class="tsd-panel tsd-typography">
 				<h1 id="pskv2">PSKv2</h1>
 				<blockquote>
-					<p>Javascript implementation of the <a href="https://github.com/interledger/rfcs/pull/351">Pre-Shared Key V2</a> Interledger Transport Protocol.</p>
+					<p>Javascript implementation of the <a href="https://github.com/interledger/rfcs/blob/master/0025-pre-shared-key-2/0025-pre-shared-key-2.md">Pre-Shared Key V2</a> Interledger Transport Protocol.</p>
 				</blockquote>
 				<p><a href="https://circleci.com/gh/interledgerjs/ilp-protocol-psk2"><img src="https://circleci.com/gh/interledgerjs/ilp-protocol-psk2.svg?style=shield" alt="CircleCI"></a>
 					<a href="https://codecov.io/gh/interledgerjs/ilp-protocol-psk2"><img src="https://codecov.io/gh/interledgerjs/ilp-protocol-psk2/branch/master/graph/badge.svg" alt="codecov"></a>
 				<a href="https://standardjs.com"><img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="JavaScript Style Guide"></a></p>
-				<h2 id="features">Features</h2>
-				<ul>
-					<li>End-to-End Quoting</li>
-					<li>Single Payments</li>
-					<li>Streaming Payments</li>
-					<li><strong>(Experimental)</strong> Chunked Payments</li>
-				</ul>
+				<p>PSK2 is a request/response protocol built on ILP that can send value and/or data. It handles generating conditions and fulfillments for ILP Prepare/Fulfill packets to send value, and it encrypts and authenticates request and response data.</p>
+				<p>PSK2 can be used to send indivdiual payment chunks, unfulfillable test payments for quotes, and it can be used as part of a protocol/module for streaming or chunked payments.</p>
 				<h2 id="installation">Installation</h2>
 				<pre><code class="lang-shell">npm install ilp-protocol-psk2
 </code></pre>
@@ -89,73 +84,51 @@
 				<pre><code class="lang-js"><span class="hljs-keyword">const</span> { createReceive } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'ilp-protocol-psk2'</span>)
 <span class="hljs-keyword">const</span> receiver = <span class="hljs-keyword">await</span> createReceiver({
   <span class="hljs-attr">plugin</span>: myLedgerPlugin,
-  <span class="hljs-attr">paymentHandler</span>: <span class="hljs-keyword">async</span> (params) =&gt; {
-    <span class="hljs-comment">// Accept all incoming payments</span>
-    <span class="hljs-keyword">const</span> result = <span class="hljs-keyword">await</span> params.accept()
-    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'Got payment for:'</span>, result.receivedAmount)
+  <span class="hljs-attr">requestHandler</span>: <span class="hljs-function">(<span class="hljs-params">params</span>) =&gt;</span> {
+    <span class="hljs-comment">// Fulfill the incoming request</span>
+    <span class="hljs-comment">// Note the data format and encoding is up to the application protocol / module</span>
+    params.accept(Buffer.from(<span class="hljs-string">'thanks for the payment!'</span>))
+    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Got paid: <span class="hljs-subst">${params.amount}</span> and got this data: <span class="hljs-subst">${params.data.toString()}</span>`</span>)
   }
 })
 
 <span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
 <span class="hljs-comment">// Give these two values to a sender to enable them to send payments to this Receiver</span>
 </code></pre>
-				<h3 id="sending-a-single-payment">Sending a Single Payment</h3>
+				<h3 id="sending-a-request">Sending a Request</h3>
 				<p>Uses <a href="https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk"><code>sendSingleChunk</code></a> and <a href="https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#quotedestinationamount"><code>quoteDestinationAmount</code></a>.</p>
-				<pre><code class="lang-js"><span class="hljs-keyword">const</span> { sendSingleChunk, quoteDestinationAmount } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'ilp-protocol-psk2'</span>)
+				<pre><code class="lang-js"><span class="hljs-keyword">const</span> { sendRequest } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'ilp-protocol-psk2'</span>)
 
 <span class="hljs-comment">// These values must be communicated beforehand for the sender to send a payment</span>
 <span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = <span class="hljs-keyword">await</span> getAddressAndSecretFromReceiver()
 
-<span class="hljs-keyword">const</span> { sourceAmount } = <span class="hljs-keyword">await</span> quoteDestinationAmount(myLedgerPlugin, {
+<span class="hljs-keyword">const</span> { fulfilled, destinationAmount, data } = <span class="hljs-keyword">await</span> sendRequest(myLedgerPlugin, {
   destinationAccount,
   sharedSecret,
-  <span class="hljs-attr">destinationAmount</span>: <span class="hljs-string">'1000'</span>
+  <span class="hljs-attr">sourceAmount</span>: <span class="hljs-string">'1000'</span>,
+  <span class="hljs-attr">minDestinationAmount</span>: <span class="hljs-string">'500'</span>,
+  <span class="hljs-attr">data</span>: Buffer.from(<span class="hljs-string">'here you go!'</span>)
 })
-
-<span class="hljs-keyword">const</span> result = <span class="hljs-keyword">await</span> sendSingleChunk(myLedgerPlugin, {
-  destinationAccount,
-  sharedSecret,
-  sourceAmount,
-  <span class="hljs-attr">minDestinationAmount</span>: <span class="hljs-string">'999'</span>
-})
-<span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Sent payment of <span class="hljs-subst">${result.sourceAmount}</span>, receiver got <span class="hljs-subst">${result.destinationAmount}</span>`</span>)
+<span class="hljs-keyword">if</span> (fulfilled) {
+  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Sent request with 1000 units of value attached, receiver got <span class="hljs-subst">${destinationAmount}</span> and responded with the message: <span class="hljs-subst">${data.toString(<span class="hljs-string">'utf8'</span>)}</span>`</span>)
+  <span class="hljs-comment">// Note the data format and encoding is up to the application protocol / module</span>
+}
 </code></pre>
-				<h3 id="sending-a-streaming-payment">Sending a Streaming Payment</h3>
-				<p>Uses <a href="https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk"><code>sendSingleChunk</code></a>.</p>
-				<pre><code class="lang-typescript"><span class="hljs-keyword">const</span> { randomBytes } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'crypto'</span>)
-<span class="hljs-keyword">const</span> { sendSingleChunk } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'ilp-protocol-psk2'</span>)
+				<h3 id="sending-an-unfulfillable-request-or-quote">Sending an Unfulfillable Request or Quote</h3>
+				<pre><code class="lang-js"><span class="hljs-keyword">const</span> { sendRequest } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'ilp-protocol-psk2'</span>)
+<span class="hljs-keyword">const</span> { randomBytes } = <span class="hljs-built_in">require</span>(<span class="hljs-string">'crypto'</span>)
 
 <span class="hljs-comment">// These values must be communicated beforehand for the sender to send a payment</span>
 <span class="hljs-keyword">const</span> { destinationAccount, sharedSecret } = <span class="hljs-keyword">await</span> getAddressAndSecretFromReceiver()
 
-<span class="hljs-keyword">const</span> id = randomBytes(<span class="hljs-number">16</span>)
-<span class="hljs-keyword">let</span> sequence = <span class="hljs-number">0</span>
-<span class="hljs-keyword">const</span> firstChunkResult = <span class="hljs-keyword">await</span> sendSingleChunk(myLedgerPlugin, {
+<span class="hljs-keyword">const</span> { destinationAmount } = <span class="hljs-keyword">await</span> sendRequest(myLedgerPlugin, {
   destinationAccount,
   sharedSecret,
-  sourceAmount,
-  minDestinationAmount: <span class="hljs-string">'0'</span>,
-  id,
-  sequence,
-  lastChunk: <span class="hljs-literal">false</span>
+  <span class="hljs-attr">sourceAmount</span>: <span class="hljs-string">'1000'</span>,
+  <span class="hljs-attr">unfulfillableCondition</span>: randomBytes(<span class="hljs-number">32</span>)
 })
-
-<span class="hljs-comment">// Repeat as many times as desired, incrementing the sequence each time</span>
-<span class="hljs-comment">// Note that the path exchange rate can be determined by dividing the destination amount returned by the chunk amount sent</span>
-
-<span class="hljs-keyword">const</span> lastChunkResult = <span class="hljs-keyword">await</span> sendSingleChunk(myLedgerPlugin, {
-  destinationAccount,
-  sharedSecret,
-  sourceAmount,
-  minDestinationAmount: <span class="hljs-string">'0'</span>,
-  id,
-  sequence,
-  lastChunk: <span class="hljs-literal">true</span>
-})
+<span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Path exchange rate is: <span class="hljs-subst">${destinationAmount.dividedBy(<span class="hljs-number">1000</span>)}</span>`</span>
 </code></pre>
-				<h3 id="experimental-chunked-payments">Experimental Chunked Payments</h3>
-				<p><strong>WARNING:</strong> PSK2 Chunked Payments are experimental. Money can be lost if an error occurs mid-payment or if the exchange rate changes dramatically! This should not be used for payments that are significantly larger than the path&#39;s Maximum Payment Size.</p>
-				<p>See <a href="https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsourceamount"><code>sendSourceAmount</code></a> and <a href="https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#senddestinationamount"><code>sendDestinationAmount</code></a>.</p>
 			</div>
 		</div>
 		<div class="col-4 col-menu menu-sticky-wrap menu-highlight">

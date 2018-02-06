@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>PaymentReceived | ilp-protocol-psk2</title>
+	<title>Type | ilp-protocol-psk2</title>
 	<meta name="description" content="">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
@@ -56,82 +56,63 @@
 					<a href="../globals.html">Globals</a>
 				</li>
 				<li>
-					<a href="../modules/_receiver_.html">&quot;receiver&quot;</a>
+					<a href="../modules/_encoding_.html">&quot;encoding&quot;</a>
 				</li>
 				<li>
-					<a href="_receiver_.paymentreceived.html">PaymentReceived</a>
+					<a href="_encoding_.type.html">Type</a>
 				</li>
 			</ul>
-			<h1>Interface PaymentReceived</h1>
+			<h1>Enumeration Type</h1>
 		</div>
 	</div>
 </header>
 <div class="container container-main">
 	<div class="row">
 		<div class="col-8 col-content">
-			<section class="tsd-panel tsd-hierarchy">
-				<h3>Hierarchy</h3>
-				<ul class="tsd-hierarchy">
-					<li>
-						<span class="target">PaymentReceived</span>
-					</li>
-				</ul>
-			</section>
 			<section class="tsd-panel-group tsd-index-group">
 				<h2>Index</h2>
 				<section class="tsd-panel tsd-index-panel">
 					<div class="tsd-index-content">
 						<section class="tsd-index-section ">
-							<h3>Properties</h3>
+							<h3>Enumeration members</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymentreceived.html#chunksfulfilled" class="tsd-kind-icon">chunks<wbr>Fulfilled</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymentreceived.html#expectedamount" class="tsd-kind-icon">expected<wbr>Amount</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymentreceived.html#id" class="tsd-kind-icon">id</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.paymentreceived.html#receivedamount" class="tsd-kind-icon">received<wbr>Amount</a></li>
+								<li class="tsd-kind-enum-member tsd-parent-kind-enum"><a href="_encoding_.type.html#error" class="tsd-kind-icon">Error</a></li>
+								<li class="tsd-kind-enum-member tsd-parent-kind-enum"><a href="_encoding_.type.html#request" class="tsd-kind-icon">Request</a></li>
+								<li class="tsd-kind-enum-member tsd-parent-kind-enum"><a href="_encoding_.type.html#response" class="tsd-kind-icon">Response</a></li>
 							</ul>
 						</section>
 					</div>
 				</section>
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
-				<h2>Properties</h2>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="chunksfulfilled" class="tsd-anchor"></a>
-					<h3>chunks<wbr>Fulfilled</h3>
-					<div class="tsd-signature tsd-kind-icon">chunks<wbr>Fulfilled<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+				<h2>Enumeration members</h2>
+				<section class="tsd-panel tsd-member tsd-kind-enum-member tsd-parent-kind-enum">
+					<a name="error" class="tsd-anchor"></a>
+					<h3>Error</h3>
+					<div class="tsd-signature tsd-kind-icon">Error<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol"> =&nbsp;6</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L91">receiver.ts:91</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L20">encoding.ts:20</a></li>
 						</ul>
 					</aside>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="expectedamount" class="tsd-anchor"></a>
-					<h3>expected<wbr>Amount</h3>
-					<div class="tsd-signature tsd-kind-icon">expected<wbr>Amount<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+				<section class="tsd-panel tsd-member tsd-kind-enum-member tsd-parent-kind-enum">
+					<a name="request" class="tsd-anchor"></a>
+					<h3>Request</h3>
+					<div class="tsd-signature tsd-kind-icon">Request<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol"> =&nbsp;4</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L90">receiver.ts:90</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L18">encoding.ts:18</a></li>
 						</ul>
 					</aside>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="id" class="tsd-anchor"></a>
-					<h3>id</h3>
-					<div class="tsd-signature tsd-kind-icon">id<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
+				<section class="tsd-panel tsd-member tsd-kind-enum-member tsd-parent-kind-enum">
+					<a name="response" class="tsd-anchor"></a>
+					<h3>Response</h3>
+					<div class="tsd-signature tsd-kind-icon">Response<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol"> =&nbsp;5</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L88">receiver.ts:88</a></li>
-						</ul>
-					</aside>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="receivedamount" class="tsd-anchor"></a>
-					<h3>received<wbr>Amount</h3>
-					<div class="tsd-signature tsd-kind-icon">received<wbr>Amount<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/receiver.ts#L89">receiver.ts:89</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/f17cfe3/src/encoding.ts#L19">encoding.ts:19</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -149,13 +130,13 @@
 					<li class=" tsd-kind-external-module">
 						<a href="../modules/_constants_.html">"constants"</a>
 					</li>
-					<li class=" tsd-kind-external-module">
+					<li class="current tsd-kind-external-module">
 						<a href="../modules/_encoding_.html">"encoding"</a>
 					</li>
 					<li class=" tsd-kind-external-module">
 						<a href="../modules/_index_.html">"index"</a>
 					</li>
-					<li class="current tsd-kind-external-module">
+					<li class=" tsd-kind-external-module">
 						<a href="../modules/_receiver_.html">"receiver"</a>
 					</li>
 					<li class=" tsd-kind-external-module">
@@ -165,68 +146,56 @@
 			</nav>
 			<nav class="tsd-navigation secondary menu-sticky">
 				<ul class="before-current">
-					<li class=" tsd-kind-class tsd-parent-kind-external-module">
-						<a href="../classes/_receiver_.receiver.html" class="tsd-kind-icon">Receiver</a>
-					</li>
-					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
-						<a href="_receiver_.paymenthandler.html" class="tsd-kind-icon">Payment<wbr>Handler</a>
-					</li>
-					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
-						<a href="_receiver_.paymenthandlerparams.html" class="tsd-kind-icon">Payment<wbr>Handler<wbr>Params</a>
-					</li>
 				</ul>
 				<ul class="current">
-					<li class="current tsd-kind-interface tsd-parent-kind-external-module">
-						<a href="_receiver_.paymentreceived.html" class="tsd-kind-icon">Payment<wbr>Received</a>
+					<li class="current tsd-kind-enum tsd-parent-kind-external-module">
+						<a href="_encoding_.type.html" class="tsd-kind-icon">Type</a>
 						<ul>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_receiver_.paymentreceived.html#chunksfulfilled" class="tsd-kind-icon">chunks<wbr>Fulfilled</a>
+							<li class=" tsd-kind-enum-member tsd-parent-kind-enum">
+								<a href="_encoding_.type.html#error" class="tsd-kind-icon">Error</a>
 							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_receiver_.paymentreceived.html#expectedamount" class="tsd-kind-icon">expected<wbr>Amount</a>
+							<li class=" tsd-kind-enum-member tsd-parent-kind-enum">
+								<a href="_encoding_.type.html#request" class="tsd-kind-icon">Request</a>
 							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_receiver_.paymentreceived.html#id" class="tsd-kind-icon">id</a>
-							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_receiver_.paymentreceived.html#receivedamount" class="tsd-kind-icon">received<wbr>Amount</a>
+							<li class=" tsd-kind-enum-member tsd-parent-kind-enum">
+								<a href="_encoding_.type.html#response" class="tsd-kind-icon">Response</a>
 							</li>
 						</ul>
 					</li>
 				</ul>
 				<ul class="after-current">
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
-						<a href="_receiver_.receiveropts.html" class="tsd-kind-icon">Receiver<wbr>Opts</a>
+						<a href="../interfaces/_encoding_.legacypskpacket.html" class="tsd-kind-icon">Legacy<wbr>Psk<wbr>Packet</a>
 					</li>
 					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
-						<a href="_receiver_.requesthandler.html" class="tsd-kind-icon">Request<wbr>Handler</a>
-					</li>
-					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
-						<a href="_receiver_.requesthandlerparams.html" class="tsd-kind-icon">Request<wbr>Handler<wbr>Params</a>
-					</li>
-					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="../modules/_receiver_.html#psk_generation_string" class="tsd-kind-icon">PSK_<wbr>GENERATION_<wbr>STRING</a>
-					</li>
-					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="../modules/_receiver_.html#shared_secret_length" class="tsd-kind-icon">SHARED_<wbr>SECRET_<wbr>LENGTH</a>
-					</li>
-					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="../modules/_receiver_.html#token_length" class="tsd-kind-icon">TOKEN_<wbr>LENGTH</a>
-					</li>
-					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="../modules/_receiver_.html#debug" class="tsd-kind-icon">debug</a>
+						<a href="../interfaces/_encoding_.pskpacket.html" class="tsd-kind-icon">Psk<wbr>Packet</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="../modules/_receiver_.html#base64url" class="tsd-kind-icon">base64url</a>
+						<a href="../modules/_encoding_.html#bignumbertohighlow" class="tsd-kind-icon">big<wbr>Number<wbr>ToHigh<wbr>Low</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+						<a href="../modules/_encoding_.html#decrypt" class="tsd-kind-icon">decrypt</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module">
-						<a href="../modules/_receiver_.html#createreceiver" class="tsd-kind-icon">create<wbr>Receiver</a>
+						<a href="../modules/_encoding_.html#deserializelegacypskpacket" class="tsd-kind-icon">deserialize<wbr>Legacy<wbr>Psk<wbr>Packet</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="../modules/_encoding_.html#deserializepskpacket" class="tsd-kind-icon">deserialize<wbr>Psk<wbr>Packet</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="../modules/_receiver_.html#generatesharedsecret" class="tsd-kind-icon">generate<wbr>Shared<wbr>Secret</a>
+						<a href="../modules/_encoding_.html#encrypt" class="tsd-kind-icon">encrypt</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="../modules/_receiver_.html#hmac" class="tsd-kind-icon">hmac</a>
+						<a href="../modules/_encoding_.html#highlowtobignumber" class="tsd-kind-icon">high<wbr>Low<wbr>ToBig<wbr>Number</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+						<a href="../modules/_encoding_.html#hmac" class="tsd-kind-icon">hmac</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="../modules/_encoding_.html#serializelegacypskpacket" class="tsd-kind-icon">serialize<wbr>Legacy<wbr>Psk<wbr>Packet</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="../modules/_encoding_.html#serializepskpacket" class="tsd-kind-icon">serialize<wbr>Psk<wbr>Packet</a>
 					</li>
 				</ul>
 			</nav>

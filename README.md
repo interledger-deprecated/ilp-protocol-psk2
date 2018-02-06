@@ -43,7 +43,7 @@ const { destinationAccount, sharedSecret } = receiver.generateAddressAndSecret()
 
 ### Sending a Request
 
-Uses [`sendSingleChunk`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendsinglechunk) and [`quoteDestinationAmount`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#quotedestinationamount).
+Uses [`sendRequest`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendrequest).
 
 ```js
 const { sendRequest } = require('ilp-protocol-psk2')
@@ -65,6 +65,8 @@ if (fulfilled) {
 ```
 
 ### Sending an Unfulfillable Request or Quote
+
+Uses [`sendRequest`](https://interledgerjs.github.io/ilp-protocol-psk2/modules/_sender_.html#sendrequest).
 
 ```js
 const { sendRequest } = require('ilp-protocol-psk2')

@@ -258,10 +258,12 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
   }
 
   let pskResponsePacket: encoding.PskPacket
-  try {
-    pskResponsePacket = encoding.deserializePskPacket(params.sharedSecret, packet.data)
-  } catch (err) {
-    debug('error parsing PSK response packet:', packet.data.toString('hex'), err)
+  if (packet.data.length > 0) {
+    try {
+      pskResponsePacket = encoding.deserializePskPacket(params.sharedSecret, packet.data)
+    } catch (err) {
+      debug('error parsing PSK response packet:', packet.data.toString('hex'), err)
+    }
   }
   /* tslint:disable-next-line:no-unnecessary-type-assertion */
   pskResponsePacket = pskResponsePacket!

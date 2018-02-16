@@ -89,6 +89,34 @@ describe('Receiver', function () {
     })
   })
 
+  describe('registerRequestHandlerForSecret', function () {
+    it('should not allow you to register both a request and payment handler', async function () {
+      this.receiver.registerPaymentHandler(() => undefined)
+      assert.throws(() => this.receiver.registerRequestHandlerForSecret(Buffer.alloc(32), () => undefined))
+
+      this.receiver.deregisterPaymentHandler()
+
+      this.receiver.registerRequestHandlerForSecret(Buffer.alloc(32), () => undefined)
+      assert.throws(() => this.receiver.registerPaymentHandler(() => undefined))
+    })
+
+    it('should not allow you to register two handlers for the same secret without deregistering one first', async function () {
+      const handlerA = (params: RequestHandlerParams) => params.reject()
+      const handlerB = (params: RequestHandlerParams) => params.accept()
+      const sharedSecret = Buffer.alloc(32)
+      this.receiver.registerRequestHandlerForSecret(sharedSecret, handlerA)
+      assert.throws(() => this.receiver.registerRequestHandlerForSecret(sharedSecret, handlerB))
+
+      this.receiver.deregisterRequestHandlerForSecret(sharedSecret)
+
+      assert.doesNotThrow(() => this.receiver.registerRequestHandlerForSecret(sharedSecret, handlerB))
+    })
+
+    it('should not do anything if you try to deregister a handler for a secret there was no handler for', async function () {
+      assert.doesNotThrow(() => this.receiver.deregisterRequestHandlerForSecret(Buffer.alloc(32)))
+    })
+  })
+
   describe('handleData', function () {
     beforeEach(async function () {
       await this.receiver.connect()
@@ -491,6 +519,31 @@ describe('Receiver', function () {
             sourceAmount: '100'
           })
           assert.equal(result.chunksFulfilled, 1)
+        })
+      })
+
+      describe('Listening with a custom sharedSecret', function () {
+        it('should call the given requestHandler instead of the normal one', async function () {
+          const normalSpy = sinon.spy()
+          const specificSpy = sinon.spy()
+          this.receiver.registerRequestHandler((params: RequestHandlerParams) => {
+            params.reject()
+            normalSpy()
+          })
+          const sharedSecret = Buffer.alloc(32, 'FF', 'hex')
+          const { destinationAccount } = this.receiver.registerRequestHandlerForSecret(sharedSecret, (params: RequestHandlerParams) => {
+            params.accept()
+            specificSpy()
+          })
+
+          const result = await sendRequest(this.plugin, {
+            destinationAccount,
+            sharedSecret,
+            sourceAmount: '100',
+          })
+
+          assert(normalSpy.notCalled)
+          assert(specificSpy.called)
         })
       })
     })

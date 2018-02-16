@@ -269,6 +269,72 @@ describe('Receiver', function () {
           const pskResponse = encoding.deserializePskPacket(this.sharedSecret, parsed.data)
           assert.equal(pskResponse.amount.toString(10), '50')
         })
+
+        it('should call the requestHandler with the attached data (and an amount of 0) even if it cannot generate the fulfillment', async function () {
+          const spy = sinon.spy()
+          this.receiver.deregisterRequestHandler()
+          this.receiver.registerRequestHandler((params: RequestHandlerParams) => {
+            spy(params)
+            params.reject(Buffer.from('got it'))
+          })
+          // Note: We should be able to use the fixtures attached to this but for some reason this test fails unless these are copied here
+          this.pskRequest = {
+            type: encoding.Type.Request,
+            requestId: 1000,
+            amount: new BigNumber(50),
+            data: Buffer.from('hello')
+          }
+          this.pskRequestBuffer = encoding.serializePskPacket(this.sharedSecret, this.pskRequest)
+          const executionCondition = Buffer.alloc(32, 0)
+          const prepare = {
+            destination: this.destinationAccount,
+            amount: '100',
+            data: this.pskRequestBuffer,
+            executionCondition,
+            expiresAt: new Date(Date.now() + 3000)
+          }
+          const response = await this.plugin.sendData(IlpPacket.serializeIlpPrepare(prepare))
+          assert(spy.called)
+          const parsed = IlpPacket.deserializeIlpReject(response)
+          assert.notEqual(parsed.data.length, 0)
+          const pskResponse = encoding.deserializePskPacket(this.sharedSecret, parsed.data)
+          assert.equal(pskResponse.amount.toString(10), '50')
+          assert.equal(pskResponse.data.toString(), 'got it')
+          assert.strictEqual(spy.args[0][0].isFulfillable, false)
+          assert.strictEqual(spy.args[0][0].amount.toString(), '0')
+        })
+
+        it('should reject even if the requestHandler calls accpet', async function () {
+          const spy = sinon.spy()
+          this.receiver.deregisterRequestHandler()
+          this.receiver.registerRequestHandler((params: RequestHandlerParams) => {
+            spy(params)
+            params.accept(Buffer.from('got it'))
+          })
+          // Note: We should be able to use the fixtures attached to this but for some reason this test fails unless these are copied here
+          this.pskRequest = {
+            type: encoding.Type.Request,
+            requestId: 1000,
+            amount: new BigNumber(50),
+            data: Buffer.from('hello')
+          }
+          this.pskRequestBuffer = encoding.serializePskPacket(this.sharedSecret, this.pskRequest)
+          const executionCondition = Buffer.alloc(32, 0)
+          const prepare = {
+            destination: this.destinationAccount,
+            amount: '100',
+            data: this.pskRequestBuffer,
+            executionCondition,
+            expiresAt: new Date(Date.now() + 3000)
+          }
+          const response = await this.plugin.sendData(IlpPacket.serializeIlpPrepare(prepare))
+          assert(spy.called)
+          const parsed = IlpPacket.deserializeIlpReject(response)
+          assert.notEqual(parsed.data.length, 0)
+          const pskResponse = encoding.deserializePskPacket(this.sharedSecret, parsed.data)
+          assert.equal(pskResponse.amount.toString(10), '50')
+          assert.equal(pskResponse.data.toString(), '')
+        })
       })
 
       describe('valid packets', function () {

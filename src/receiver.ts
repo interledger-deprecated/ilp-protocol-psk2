@@ -29,6 +29,8 @@ export interface RequestHandler {
 export interface RequestHandlerParams {
   /** If a keyId was passed into [`createAddressAndSecret`]{@link Receiver.createAddressAndSecret}, it will be present here when a packet is sent to that `destinationAccount` */
   keyId?: Buffer,
+  /** Indicates whether the request is fulfillable (unfulfillable requests are passed to the handler in case they carry useful application data) */
+  isFulfillable: boolean,
   /** Amount that arrived */
   amount: BigNumber,
   /** Data sent by the sender */
@@ -232,6 +234,15 @@ export class Receiver {
     }
   }
 
+  /**
+   * Register a `RequestHandler` for a specific `sharedSecret`.
+   * This will be called instead of the normal `requestHandler` when requests come in for the `destinationAccount` returned by this function.
+   *
+   * This is especially useful for bidirectional protocols built on top of PSK2 in which both sides want to use the same sharedSecret.
+   *
+   * @param sharedSecret Secret to use for decrypting data and generating fulfillments
+   * @param handler Callback that will be called when a request comes in for the `destinationAccount` returned by this function
+   */
   registerRequestHandlerForSecret (sharedSecret: Buffer, handler: RequestHandler): { destinationAccount: string, sharedSecret: Buffer } {
     if (this.paymentHandler !== this.defaultPaymentHandler) {
       throw new Error('PaymentHandler and RequestHandler APIs cannot be used at the same time')
@@ -257,6 +268,9 @@ export class Receiver {
     }
   }
 
+  /**
+   * Remove the requestHandler for a specific sharedSecret. Does nothing if there is no handler registered
+   */
   deregisterRequestHandlerForSecret (sharedSecret: Buffer): void {
     const generator = hmac(this.secret, Buffer.from(PSK_ADDRESS_FROM_SECRET_STRING, 'utf8'))
     const addressSuffix = base64url(hmac(generator, sharedSecret).slice(0, TOKEN_LENGTH))
@@ -342,40 +356,42 @@ export class Receiver {
       }
       packet = packet as encoding.PskPacket
 
-      // Check if the amount we received is enough
-      // Note: this check must come before the fulfillment one in order for unfulfillable test payments to be used as quotes
-      if (packet.amount.greaterThan(prepare.amount)) {
-        debug(`incoming transfer amount too low. actual: ${prepare.amount}, expected: ${packet.amount}`)
-        return this.reject('F99', '', encoding.serializePskPacket(sharedSecret, {
-          type: encoding.Type.Error,
-          requestId: packet.requestId,
-          amount: new BigNumber(prepare.amount),
-          data: Buffer.alloc(0)
-        }))
-      }
+      let isFulfillable = false
+      let errorCode = 'F99'
+      let errorMessage = ''
 
       // Check if we can regenerate the correct fulfillment
-      let fulfillment
+      let fulfillment: Buffer
       try {
         fulfillment = dataToFulfillment(sharedSecret, prepare.data)
         const generatedCondition = fulfillmentToCondition(fulfillment)
-        if (!generatedCondition.equals(prepare.executionCondition)) {
-          throw new Error(`condition generated does not match. expected: ${prepare.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
+        if (generatedCondition.equals(prepare.executionCondition)) {
+          isFulfillable = true
+        } else {
+          isFulfillable = false
+          errorCode = 'F05'
+          errorMessage = 'Condition generated does not match prepare'
+          debug(`condition generated does not match. expected: ${prepare.executionCondition.toString('base64')}, actual: ${generatedCondition.toString('base64')}`)
+
         }
       } catch (err) {
-        debug('error regenerating fulfillment, rejecting packet:', err.message)
-        return this.reject('F05', 'Condition generated does not match prepare', encoding.serializePskPacket(sharedSecret, {
-          type: encoding.Type.Error,
-          requestId: packet.requestId,
-          amount: new BigNumber(prepare.amount),
-          data: Buffer.alloc(0)
-        }))
+        isFulfillable = false
+        errorCode = 'F05'
+        errorMessage = 'Condition does not match prepare'
+        debug('unable to generate fulfillment from data:', err)
       }
 
-      const { fulfill, responseData } = await callRequestHandler(requestHandler, packet.requestId, prepare.amount, packet.data, keyId)
-      if (fulfill) {
+      // Check if the amount we received is enough
+      if (packet.amount.greaterThan(prepare.amount)) {
+        isFulfillable = false
+        debug(`incoming transfer amount too low. actual: ${prepare.amount}, expected: ${packet.amount}`)
+      }
+
+      const { fulfill, responseData } = await callRequestHandler(requestHandler, isFulfillable, packet.requestId, prepare.amount, packet.data, keyId)
+      if (fulfill && isFulfillable) {
         return IlpPacket.serializeIlpFulfill({
-          fulfillment,
+          /* tslint:disable-next-line:no-unnecessary-type-assertion */
+          fulfillment: fulfillment!,
           data: encoding.serializePskPacket(sharedSecret, {
             type: encoding.Type.Response,
             requestId: packet.requestId,
@@ -384,7 +400,7 @@ export class Receiver {
           })
         })
       } else {
-        return this.reject('F99', '', encoding.serializePskPacket(sharedSecret, {
+        return this.reject(errorCode, errorMessage, encoding.serializePskPacket(sharedSecret, {
           type: encoding.Type.Error,
           requestId: packet.requestId,
           amount: new BigNumber(prepare.amount),
@@ -435,7 +451,7 @@ export class Receiver {
       packet.paymentId.copy(compatibilityData)
       compatibilityData.writeUInt32BE(packet.sequence, 16)
 
-      const { fulfill } = await callRequestHandler(requestHandler, packet.sequence, prepare.amount, compatibilityData, keyId)
+      const { fulfill } = await callRequestHandler(requestHandler, true, packet.sequence, prepare.amount, compatibilityData, keyId)
       if (fulfill) {
         return IlpPacket.serializeIlpFulfill({
           fulfillment,
@@ -690,7 +706,7 @@ export async function createReceiver (opts: ReceiverOpts): Promise<Receiver> {
   return receiver
 }
 
-async function callRequestHandler (requestHandler: RequestHandler, requestId: number, amount: string, data: Buffer, keyId?: Buffer): Promise<{ fulfill: boolean, responseData: Buffer }> {
+async function callRequestHandler (requestHandler: RequestHandler, isFulfillable: boolean, requestId: number, amount: string, data: Buffer, keyId?: Buffer): Promise<{ fulfill: boolean, responseData: Buffer }> {
   let fulfill = false
   let finalized = false
   let responseData = Buffer.alloc(0)
@@ -703,12 +719,16 @@ async function callRequestHandler (requestHandler: RequestHandler, requestId: nu
     // c) if there is an error thrown in the request handler
     try {
       await Promise.resolve(requestHandler({
+        isFulfillable,
         keyId,
-        amount: new BigNumber(amount),
+        amount: (isFulfillable ? new BigNumber(amount) : new BigNumber(0)),
         data,
         accept: (userResponse = Buffer.alloc(0)) => {
           if (finalized) {
             throw new Error(`Packet was already ${fulfill ? 'fulfilled' : 'rejected'}`)
+          }
+          if (!isFulfillable) {
+            throw new Error('Packet is unfulfillable')
           }
           finalized = true
           fulfill = true

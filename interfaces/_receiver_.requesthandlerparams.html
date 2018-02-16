@@ -87,6 +87,7 @@
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.requesthandlerparams.html#accept" class="tsd-kind-icon">accept</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.requesthandlerparams.html#amount" class="tsd-kind-icon">amount</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.requesthandlerparams.html#data" class="tsd-kind-icon">data</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.requesthandlerparams.html#isfulfillable" class="tsd-kind-icon">is<wbr>Fulfillable</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.requesthandlerparams.html#keyid" class="tsd-kind-icon">key<wbr>Id</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_receiver_.requesthandlerparams.html#reject" class="tsd-kind-icon">reject</a></li>
 							</ul>
@@ -102,7 +103,7 @@
 					<div class="tsd-signature tsd-kind-icon">accept<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">function</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L36">receiver.ts:36</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L39">receiver.ts:39</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -138,7 +139,7 @@
 					<div class="tsd-signature tsd-kind-icon">amount<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">BigNumber</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L32">receiver.ts:32</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L35">receiver.ts:35</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -153,7 +154,7 @@
 					<div class="tsd-signature tsd-kind-icon">data<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L34">receiver.ts:34</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L37">receiver.ts:37</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -163,12 +164,27 @@
 					</div>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
+					<a name="isfulfillable" class="tsd-anchor"></a>
+					<h3>is<wbr>Fulfillable</h3>
+					<div class="tsd-signature tsd-kind-icon">is<wbr>Fulfillable<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L33">receiver.ts:33</a></li>
+						</ul>
+					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Indicates whether the request is fulfillable (unfulfillable requests are passed to the handler in case they carry useful application data)</p>
+						</div>
+					</div>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
 					<a name="keyid" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagOptional">Optional</span> key<wbr>Id</h3>
 					<div class="tsd-signature tsd-kind-icon">key<wbr>Id<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L30">receiver.ts:30</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L31">receiver.ts:31</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -183,7 +199,7 @@
 					<div class="tsd-signature tsd-kind-icon">reject<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">function</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L38">receiver.ts:38</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L41">receiver.ts:41</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -276,6 +292,9 @@
 								<a href="_receiver_.requesthandlerparams.html#data" class="tsd-kind-icon">data</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-interface">
+								<a href="_receiver_.requesthandlerparams.html#isfulfillable" class="tsd-kind-icon">is<wbr>Fulfillable</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-interface">
 								<a href="_receiver_.requesthandlerparams.html#keyid" class="tsd-kind-icon">key<wbr>Id</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-interface">
@@ -285,6 +304,9 @@
 					</li>
 				</ul>
 				<ul class="after-current">
+					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
+						<a href="../modules/_receiver_.html#psk_address_from_secret_string" class="tsd-kind-icon">PSK_<wbr>ADDRESS_<wbr>FROM_<wbr>SECRET_<wbr>STRING</a>
+					</li>
 					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
 						<a href="../modules/_receiver_.html#psk_generation_string" class="tsd-kind-icon">PSK_<wbr>GENERATION_<wbr>STRING</a>
 					</li>
@@ -299,6 +321,9 @@
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
 						<a href="../modules/_receiver_.html#base64url" class="tsd-kind-icon">base64url</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+						<a href="../modules/_receiver_.html#callrequesthandler" class="tsd-kind-icon">call<wbr>Request<wbr>Handler</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module">
 						<a href="../modules/_receiver_.html#createreceiver" class="tsd-kind-icon">create<wbr>Receiver</a>

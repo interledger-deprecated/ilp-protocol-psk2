@@ -90,6 +90,7 @@
 						<section class="tsd-index-section tsd-is-not-exported">
 							<h3>Variables</h3>
 							<ul class="tsd-index-list">
+								<li class="tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported"><a href="_receiver_.html#psk_address_from_secret_string" class="tsd-kind-icon">PSK_<wbr>ADDRESS_<wbr>FROM_<wbr>SECRET_<wbr>STRING</a></li>
 								<li class="tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported"><a href="_receiver_.html#psk_generation_string" class="tsd-kind-icon">PSK_<wbr>GENERATION_<wbr>STRING</a></li>
 								<li class="tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported"><a href="_receiver_.html#shared_secret_length" class="tsd-kind-icon">SHARED_<wbr>SECRET_<wbr>LENGTH</a></li>
 								<li class="tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported"><a href="_receiver_.html#token_length" class="tsd-kind-icon">TOKEN_<wbr>LENGTH</a></li>
@@ -100,6 +101,7 @@
 							<h3>Functions</h3>
 							<ul class="tsd-index-list">
 								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_receiver_.html#base64url" class="tsd-kind-icon">base64url</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_receiver_.html#callrequesthandler" class="tsd-kind-icon">call<wbr>Request<wbr>Handler</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="_receiver_.html#createreceiver" class="tsd-kind-icon">create<wbr>Receiver</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_receiver_.html#generatesharedsecret" class="tsd-kind-icon">generate<wbr>Shared<wbr>Secret</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_receiver_.html#hmac" class="tsd-kind-icon">hmac</a></li>
@@ -111,12 +113,22 @@
 			<section class="tsd-panel-group tsd-member-group tsd-is-not-exported">
 				<h2>Variables</h2>
 				<section class="tsd-panel tsd-member tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
+					<a name="psk_address_from_secret_string" class="tsd-anchor"></a>
+					<h3>PSK_<wbr>ADDRESS_<wbr>FROM_<wbr>SECRET_<wbr>STRING</h3>
+					<div class="tsd-signature tsd-kind-icon">PSK_<wbr>ADDRESS_<wbr>FROM_<wbr>SECRET_<wbr>STRING<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">"ilp_psk2_address_from_secret"</span><span class="tsd-signature-symbol"> =&nbsp;&quot;ilp_psk2_address_from_secret&quot;</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L16">receiver.ts:16</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
 					<a name="psk_generation_string" class="tsd-anchor"></a>
 					<h3>PSK_<wbr>GENERATION_<wbr>STRING</h3>
 					<div class="tsd-signature tsd-kind-icon">PSK_<wbr>GENERATION_<wbr>STRING<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">"ilp_psk2_generation"</span><span class="tsd-signature-symbol"> =&nbsp;&quot;ilp_psk2_generation&quot;</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L15">receiver.ts:15</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L15">receiver.ts:15</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -126,7 +138,7 @@
 					<div class="tsd-signature tsd-kind-icon">SHARED_<wbr>SECRET_<wbr>LENGTH<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">32</span><span class="tsd-signature-symbol"> =&nbsp;32</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L17">receiver.ts:17</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L18">receiver.ts:18</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -136,7 +148,7 @@
 					<div class="tsd-signature tsd-kind-icon">TOKEN_<wbr>LENGTH<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">18</span><span class="tsd-signature-symbol"> =&nbsp;18</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L16">receiver.ts:16</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L17">receiver.ts:17</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -146,7 +158,7 @@
 					<div class="tsd-signature tsd-kind-icon">debug<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">IDebugger</span><span class="tsd-signature-symbol"> =&nbsp;Debug(&#x27;ilp-protocol-psk2:receiver&#x27;)</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L6">receiver.ts:6</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L6">receiver.ts:6</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -163,7 +175,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L707">receiver.ts:707</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L776">receiver.ts:776</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -173,6 +185,44 @@
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+					<a name="callrequesthandler" class="tsd-anchor"></a>
+					<h3>call<wbr>Request<wbr>Handler</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">call<wbr>Request<wbr>Handler<span class="tsd-signature-symbol">(</span>requestHandler<span class="tsd-signature-symbol">: </span><a href="../interfaces/_receiver_.requesthandler.html" class="tsd-signature-type">RequestHandler</a>, isFulfillable<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span>, requestId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span>, amount<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, data<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span>, keyId<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">object</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L709">receiver.ts:709</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>requestHandler: <a href="../interfaces/_receiver_.requesthandler.html" class="tsd-signature-type">RequestHandler</a></h5>
+								</li>
+								<li>
+									<h5>isFulfillable: <span class="tsd-signature-type">boolean</span></h5>
+								</li>
+								<li>
+									<h5>requestId: <span class="tsd-signature-type">number</span></h5>
+								</li>
+								<li>
+									<h5>amount: <span class="tsd-signature-type">string</span></h5>
+								</li>
+								<li>
+									<h5>data: <span class="tsd-signature-type">Buffer</span></h5>
+								</li>
+								<li>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> keyId: <span class="tsd-signature-type">Buffer</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">object</span><span class="tsd-signature-symbol">&gt;</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -186,7 +236,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L678">receiver.ts:678</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L691">receiver.ts:691</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -231,7 +281,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L696">receiver.ts:696</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L765">receiver.ts:765</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -257,7 +307,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/80a29e4/src/receiver.ts#L701">receiver.ts:701</a></li>
+									<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e914d9b/src/receiver.ts#L770">receiver.ts:770</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -325,6 +375,9 @@
 						<a href="../interfaces/_receiver_.requesthandlerparams.html" class="tsd-kind-icon">Request<wbr>Handler<wbr>Params</a>
 					</li>
 					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
+						<a href="_receiver_.html#psk_address_from_secret_string" class="tsd-kind-icon">PSK_<wbr>ADDRESS_<wbr>FROM_<wbr>SECRET_<wbr>STRING</a>
+					</li>
+					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
 						<a href="_receiver_.html#psk_generation_string" class="tsd-kind-icon">PSK_<wbr>GENERATION_<wbr>STRING</a>
 					</li>
 					<li class=" tsd-kind-variable tsd-parent-kind-external-module tsd-is-not-exported">
@@ -338,6 +391,9 @@
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
 						<a href="_receiver_.html#base64url" class="tsd-kind-icon">base64url</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+						<a href="_receiver_.html#callrequesthandler" class="tsd-kind-icon">call<wbr>Request<wbr>Handler</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module">
 						<a href="_receiver_.html#createreceiver" class="tsd-kind-icon">create<wbr>Receiver</a>

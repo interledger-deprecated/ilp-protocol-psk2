@@ -13,6 +13,7 @@ import { dataToFulfillment, fulfillmentToCondition } from './condition'
 import * as ILDCP from 'ilp-protocol-ildcp'
 
 const PSK_GENERATION_STRING = 'ilp_psk2_generation'
+const PSK_ADDRESS_FROM_SECRET_STRING = 'ilp_psk2_address_from_secret'
 const TOKEN_LENGTH = 18
 const SHARED_SECRET_LENGTH = 32
 
@@ -121,6 +122,7 @@ export class Receiver {
   protected payments: Object
   protected connected: boolean
   protected usingRequestHandlerApi: boolean
+  protected specificRequestHandlers: { [key: string]: { sharedSecret: Buffer, requestHandler: RequestHandler } }
 
   constructor (plugin: PluginV2 | PluginV1, secret: Buffer) {
     // TODO stop accepting PluginV1
@@ -133,6 +135,7 @@ export class Receiver {
     this.connected = false
     this.requestHandler = this.defaultRequestHandler
     this.usingRequestHandlerApi = false
+    this.specificRequestHandlers = {}
   }
 
   /**
@@ -229,6 +232,43 @@ export class Receiver {
     }
   }
 
+  registerRequestHandlerForSecret (sharedSecret: Buffer, handler: RequestHandler): { destinationAccount: string, sharedSecret: Buffer } {
+    if (this.paymentHandler !== this.defaultPaymentHandler) {
+      throw new Error('PaymentHandler and RequestHandler APIs cannot be used at the same time')
+    }
+    this.usingRequestHandlerApi = true
+
+    const generator = hmac(this.secret, Buffer.from(PSK_ADDRESS_FROM_SECRET_STRING, 'utf8'))
+    const addressSuffix = base64url(hmac(generator, sharedSecret).slice(0, TOKEN_LENGTH))
+
+    if (this.specificRequestHandlers[addressSuffix]) {
+      throw new Error('RequestHandler already registered for that sharedSecret. The old handler must be deregistered first before another one is added')
+    }
+
+    this.specificRequestHandlers[addressSuffix] = {
+      sharedSecret,
+      requestHandler: handler
+    }
+    debug(`added specific request handler for address suffix: ${addressSuffix}`)
+
+    return {
+      sharedSecret,
+      destinationAccount: `${this.address}.${addressSuffix}`
+    }
+  }
+
+  deregisterRequestHandlerForSecret (sharedSecret: Buffer): void {
+    const generator = hmac(this.secret, Buffer.from(PSK_ADDRESS_FROM_SECRET_STRING, 'utf8'))
+    const addressSuffix = base64url(hmac(generator, sharedSecret).slice(0, TOKEN_LENGTH))
+
+    if (this.specificRequestHandlers[addressSuffix]) {
+      delete this.specificRequestHandlers[addressSuffix]
+      debug(`removed specific request handler for address suffix: ${addressSuffix}`)
+    } else {
+      debug(`tried to remove specific request handler for address suffix: ${addressSuffix}, but there was no handler registerd`)
+    }
+  }
+
   protected async defaultPaymentHandler (params: PaymentHandlerParams): Promise<void> {
     debug(`Receiver has no handler registered, rejecting payment ${params.id.toString('hex')}`)
     return params.reject('Receiver has no payment handler registered')
@@ -248,77 +288,34 @@ export class Receiver {
     })
   }
 
-  protected async callRequestHandler (requestId: number, amount: string, data: Buffer, keyId?: Buffer): Promise<{ fulfill: boolean, responseData: Buffer }> {
-    let fulfill = false
-    let finalized = false
-    let responseData = Buffer.alloc(0)
-
-    // This promise resolves when the user has either accepted or rejected the payment
-    await new Promise(async (resolve, reject) => {
-      // Reject the payment if:
-      // a) the user explicity calls reject
-      // b) if they don't call accept
-      // c) if there is an error thrown in the request handler
-      try {
-        await Promise.resolve(this.requestHandler({
-          keyId,
-          amount: new BigNumber(amount),
-          data,
-          accept: (userResponse = Buffer.alloc(0)) => {
-            if (finalized) {
-              throw new Error(`Packet was already ${fulfill ? 'fulfilled' : 'rejected'}`)
-            }
-            finalized = true
-            fulfill = true
-            responseData = userResponse
-            debug(`user accepted packet with requestId ${requestId}${keyId ? ' for keyId: ' + base64url(keyId) : ''}`)
-            resolve()
-          },
-          reject: (userResponse = Buffer.alloc(0)) => {
-            if (finalized) {
-              throw new Error(`Packet was already ${fulfill ? 'fulfilled' : 'rejected'}`)
-            }
-            finalized = true
-            responseData = userResponse
-            debug(`user rejected packet with requestId: ${requestId}${keyId ? ' for keyId: ' + base64url(keyId) : ''}`)
-            resolve()
-          }
-        }))
-      } catch (err) {
-        debug('error in requestHandler, going to reject the packet:', err)
-      }
-      if (!finalized) {
-        finalized = true
-        debug('requestHandler returned without user calling accept or reject, rejecting the packet now')
-      }
-      resolve()
-    })
-
-    return {
-      fulfill,
-      responseData
-    }
-  }
-
   // This is an arrow function so we don't need to use bind when setting it on the plugin
   protected handleData = async (data: Buffer): Promise<Buffer> => {
     let prepare: IlpPacket.IlpPrepare
     let sharedSecret: Buffer
+    let requestHandler: RequestHandler
     let keyId = undefined
 
     try {
       prepare = IlpPacket.deserializeIlpPrepare(data)
-      const localPart = prepare.destination.replace(this.address + '.', '')
-      const split = localPart.split('.')
-      assert(split.length >= 1, 'destinationAccount does not have token')
-      const keygen = Buffer.from(split[0], 'base64')
+    } catch (err) {
+      debug('error parsing incoming prepare:', err)
+      return this.reject('F06', 'Packet is not an IlpPrepare')
+    }
+
+    const localParts = prepare.destination.replace(this.address + '.', '').split('.')
+    if (localParts.length === 0) {
+      return this.reject('F02', 'Packet is not for this receiver')
+    }
+    if (this.specificRequestHandlers[localParts[0]]) {
+      requestHandler = this.specificRequestHandlers[localParts[0]].requestHandler
+      sharedSecret = this.specificRequestHandlers[localParts[0]].sharedSecret
+    } else {
+      const keygen = Buffer.from(localParts[0], 'base64')
       if (keygen.length > TOKEN_LENGTH) {
         keyId = keygen.slice(TOKEN_LENGTH)
       }
       sharedSecret = generateSharedSecret(this.secret, keygen)
-    } catch (err) {
-      debug('error parsing incoming prepare:', err)
-      return this.reject('F06', 'Packet is not an IlpPrepare')
+      requestHandler = this.requestHandler.bind(this)
     }
 
     let packet
@@ -375,7 +372,7 @@ export class Receiver {
         }))
       }
 
-      const { fulfill, responseData } = await this.callRequestHandler(packet.requestId, prepare.amount, packet.data, keyId)
+      const { fulfill, responseData } = await callRequestHandler(requestHandler, packet.requestId, prepare.amount, packet.data, keyId)
       if (fulfill) {
         return IlpPacket.serializeIlpFulfill({
           fulfillment,
@@ -438,7 +435,7 @@ export class Receiver {
       packet.paymentId.copy(compatibilityData)
       compatibilityData.writeUInt32BE(packet.sequence, 16)
 
-      const { fulfill } = await this.callRequestHandler(packet.sequence, prepare.amount, compatibilityData, keyId)
+      const { fulfill } = await callRequestHandler(requestHandler, packet.sequence, prepare.amount, compatibilityData, keyId)
       if (fulfill) {
         return IlpPacket.serializeIlpFulfill({
           fulfillment,
@@ -691,6 +688,58 @@ export async function createReceiver (opts: ReceiverOpts): Promise<Receiver> {
   }
   await receiver.connect()
   return receiver
+}
+
+async function callRequestHandler (requestHandler: RequestHandler, requestId: number, amount: string, data: Buffer, keyId?: Buffer): Promise<{ fulfill: boolean, responseData: Buffer }> {
+  let fulfill = false
+  let finalized = false
+  let responseData = Buffer.alloc(0)
+
+  // This promise resolves when the user has either accepted or rejected the payment
+  await new Promise(async (resolve, reject) => {
+    // Reject the payment if:
+    // a) the user explicity calls reject
+    // b) if they don't call accept
+    // c) if there is an error thrown in the request handler
+    try {
+      await Promise.resolve(requestHandler({
+        keyId,
+        amount: new BigNumber(amount),
+        data,
+        accept: (userResponse = Buffer.alloc(0)) => {
+          if (finalized) {
+            throw new Error(`Packet was already ${fulfill ? 'fulfilled' : 'rejected'}`)
+          }
+          finalized = true
+          fulfill = true
+          responseData = userResponse
+          debug(`user accepted packet with requestId ${requestId}${keyId ? ' for keyId: ' + base64url(keyId) : ''}`)
+          resolve()
+        },
+        reject: (userResponse = Buffer.alloc(0)) => {
+          if (finalized) {
+            throw new Error(`Packet was already ${fulfill ? 'fulfilled' : 'rejected'}`)
+          }
+          finalized = true
+          responseData = userResponse
+          debug(`user rejected packet with requestId: ${requestId}${keyId ? ' for keyId: ' + base64url(keyId) : ''}`)
+          resolve()
+        }
+      }))
+    } catch (err) {
+      debug('error in requestHandler, going to reject the packet:', err)
+    }
+    if (!finalized) {
+      finalized = true
+      debug('requestHandler returned without user calling accept or reject, rejecting the packet now')
+    }
+    resolve()
+  })
+
+  return {
+    fulfill,
+    responseData
+  }
 }
 
 function generateSharedSecret (secret: Buffer, token: Buffer): Buffer {

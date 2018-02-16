@@ -81,11 +81,11 @@ export interface PskError {
 }
 
 export function isPskResponse (result: PskResponse | PskError): result is PskResponse {
-  return !result.hasOwnProperty('code')
+  return result.fulfilled
 }
 
 export function isPskError (result: PskResponse | PskError): result is PskError {
-  return result.hasOwnProperty('code')
+  return !result.fulfilled
 }
 
 /**

@@ -104,6 +104,28 @@ describe('Sender', function () {
       assert.equal(result.destinationAmount.toString(10), '5')
     })
 
+    it('should return the unauthenticatedData if a connector rejects the packet', async function () {
+      const hexData = '000000000000138800000000000007d0'
+      const stub = sinon.stub(this.plugin, 'sendData')
+        .resolves(IlpPacket.serializeIlpReject({
+          code: 'F08',
+          message: 'Amount Too Large',
+          triggeredBy: 'test.connector',
+          data: Buffer.from(hexData, 'hex')
+        }))
+
+      const result = await sender.sendRequest(this.plugin, {
+        destinationAccount: 'test.receiver',
+        sharedSecret: SHARED_SECRET,
+        sourceAmount: '10000',
+        requestId: 1234
+      })
+
+      assert.equal(stub.callCount, 1)
+      assert.equal((result as sender.PskError).unauthenticatedData.toString('hex'), hexData)
+      assert.equal(result.data.length, 0)
+    })
+
     it('should be able to use a random unfulfillable condition (for example, for test payments)', async function () {
       const stub = sinon.stub(this.plugin, 'sendData').resolves(IlpPacket.serializeIlpReject({
         code: 'F99',

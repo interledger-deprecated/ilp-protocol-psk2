@@ -129,7 +129,7 @@ export function isPskError (result: PskResponse | PskError): result is PskError 
  * ```
  */
 export async function sendRequest (plugin: PluginV2, params: SendRequestParams): Promise<PskResponse | PskError> {
-  const debug = Debug('ilp-psk2:sendRequest')
+  const debug = Debug('ilp-protocol-psk2:sendRequest')
 
   const requestId = (typeof params.requestId === 'number' ? params.requestId : Math.floor(Math.random() * (constants.MAX_UINT32 + 1)))
   const sourceAmount = new BigNumber(params.sourceAmount)

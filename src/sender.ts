@@ -77,7 +77,14 @@ export interface PskError {
    *
    * If the PSK packet the receiver sends back is tampered with or otherwise not understandable, this will be set to an empty buffer.
    */
-  data: Buffer
+  data: Buffer,
+
+  /**
+   * Unauthenticated data that is _probably not_ from the receiver.
+   *
+   * This may be produced by a connector, for example if the error should contain machine-readable information.
+   */
+  unauthenticatedData: Buffer
 }
 
 export function isPskResponse (result: PskResponse | PskError): result is PskResponse {
@@ -258,11 +265,13 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
   }
 
   let pskResponsePacket: encoding.PskPacket
+  let unauthenticatedData = Buffer.alloc(0)
   if (packet.data.length > 0) {
     try {
       pskResponsePacket = encoding.deserializePskPacket(params.sharedSecret, packet.data)
     } catch (err) {
       debug('error parsing PSK response packet:', packet.data.toString('hex'), err)
+      unauthenticatedData = packet.data
     }
   }
   /* tslint:disable-next-line:no-unnecessary-type-assertion */
@@ -303,7 +312,8 @@ export async function sendRequest (plugin: PluginV2, params: SendRequestParams):
       message: packet.message,
       triggeredBy: packet.triggeredBy,
       destinationAmount,
-      data
+      data,
+      unauthenticatedData
     }
   }
 }

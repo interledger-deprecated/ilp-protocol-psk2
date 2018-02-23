@@ -1,6 +1,6 @@
 {
   "name": "ilp-protocol-psk2",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Implementation of the ILP Pre-Shared Key V2 Transport Protocol",
   "main": "src/index.js",
   "types": "src/index.d.ts",

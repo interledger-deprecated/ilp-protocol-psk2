@@ -97,6 +97,7 @@
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_sender_.pskerror.html#fulfilled" class="tsd-kind-icon">fulfilled</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_sender_.pskerror.html#message" class="tsd-kind-icon">message</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_sender_.pskerror.html#triggeredby" class="tsd-kind-icon">triggered<wbr>By</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_sender_.pskerror.html#unauthenticateddata" class="tsd-kind-icon">unauthenticated<wbr>Data</a></li>
 							</ul>
 						</section>
 					</div>
@@ -110,7 +111,7 @@
 					<div class="tsd-signature tsd-kind-icon">code<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e5ec9de/src/sender.ts#L64">sender.ts:64</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/0005aef/src/sender.ts#L64">sender.ts:64</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -125,7 +126,7 @@
 					<div class="tsd-signature tsd-kind-icon">data<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e5ec9de/src/sender.ts#L80">sender.ts:80</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/0005aef/src/sender.ts#L80">sender.ts:80</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -141,7 +142,7 @@
 					<div class="tsd-signature tsd-kind-icon">destination<wbr>Amount<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">BigNumber</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e5ec9de/src/sender.ts#L74">sender.ts:74</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/0005aef/src/sender.ts#L74">sender.ts:74</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -157,7 +158,7 @@
 					<div class="tsd-signature tsd-kind-icon">fulfilled<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e5ec9de/src/sender.ts#L62">sender.ts:62</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/0005aef/src/sender.ts#L62">sender.ts:62</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -172,7 +173,7 @@
 					<div class="tsd-signature tsd-kind-icon">message<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e5ec9de/src/sender.ts#L66">sender.ts:66</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/0005aef/src/sender.ts#L66">sender.ts:66</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -187,13 +188,29 @@
 					<div class="tsd-signature tsd-kind-icon">triggered<wbr>By<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/e5ec9de/src/sender.ts#L68">sender.ts:68</a></li>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/0005aef/src/sender.ts#L68">sender.ts:68</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
 						<div class="lead">
 							<p>ILP Address of the party that rejected the packet</p>
 						</div>
+					</div>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
+					<a name="unauthenticateddata" class="tsd-anchor"></a>
+					<h3>unauthenticated<wbr>Data</h3>
+					<div class="tsd-signature tsd-kind-icon">unauthenticated<wbr>Data<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/interledgerjs/ilp-protocol-psk2/blob/0005aef/src/sender.ts#L87">sender.ts:87</a></li>
+						</ul>
+					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Unauthenticated data that is <em>probably not</em> from the receiver.</p>
+						</div>
+						<p>This may be produced by a connector, for example if the error should contain machine-readable information.</p>
 					</div>
 				</section>
 			</section>
@@ -251,6 +268,9 @@
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-interface">
 								<a href="_sender_.pskerror.html#triggeredby" class="tsd-kind-icon">triggered<wbr>By</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-interface">
+								<a href="_sender_.pskerror.html#unauthenticateddata" class="tsd-kind-icon">unauthenticated<wbr>Data</a>
 							</li>
 						</ul>
 					</li>
